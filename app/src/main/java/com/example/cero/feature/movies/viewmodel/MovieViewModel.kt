@@ -1,4 +1,4 @@
-package com.example.cero.feature.movies
+package com.example.cero.feature.movies.viewmodel
 
 import android.util.Log
 import androidx.lifecycle.ViewModel

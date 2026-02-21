@@ -2,7 +2,7 @@ package com.example.cero.data.di
 
 
 import com.example.cero.data.repository.MovieRepositoryImpl
-import com.example.cero.domain.respository.UserRepository
+import com.example.cero.domain.respository.MovieRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -17,5 +17,5 @@ abstract class DataModule {
     @Singleton
     abstract fun bindMovieRepository(
         impl: MovieRepositoryImpl
-    ): UserRepository
+    ): MovieRepository
 }

@@ -1,6 +1,6 @@
 package com.example.cero.data.mapper
 
-import com.example.cero.data.remote.response.PopularMovie.MovieDto
+import com.example.cero.data.remote.PopularMovie.model.MovieDto
 import com.example.cero.domain.model.Movie
 
 

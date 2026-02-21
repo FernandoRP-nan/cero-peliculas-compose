@@ -31,11 +31,25 @@ android {
         val localProperties = Properties()
         localProperties.load(rootProject.file("local.properties").reader())
         val tmdbKey = localProperties.getProperty("TMDB_API_KEY") ?: ""
+        val baseUrl = localProperties.getProperty("BASE_URL") ?: ""
+        val imageBaseUrl = localProperties.getProperty("IMAGE_BASE_URL") ?: ""
 
         buildConfigField(
             "String",
             "TMDB_API_KEY",
             "\"$tmdbKey\""
+        )
+
+        buildConfigField(
+            "String",
+            "BASE_URL",
+            "\"$baseUrl\""
+        )
+
+        buildConfigField(
+            "String",
+            "IMAGE_BASE_URL",
+            "\"$imageBaseUrl\""
         )
     }
 
@@ -113,7 +127,4 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
-}
-tasks.withType<JavaCompile>().configureEach {
-    options.compilerArgs.add("-Xlint:deprecation")
 }

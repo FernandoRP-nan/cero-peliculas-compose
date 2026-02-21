@@ -1,6 +1,6 @@
-package com.example.cero.data.remote
+package com.example.cero.data.remote.api
 
-import com.example.cero.data.remote.response.PopularMovie.PopularMoviesResponse
+import com.example.cero.data.remote.PopularMovie.response.PopularMoviesResponse
 import retrofit2.http.GET
 import retrofit2.http.Query
 

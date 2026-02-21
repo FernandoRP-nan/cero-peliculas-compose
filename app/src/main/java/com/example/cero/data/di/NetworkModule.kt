@@ -1,7 +1,8 @@
 package com.example.cero.data.di
 
-import com.example.cero.data.remote.ApiKeyInterceptor
-import com.example.cero.data.remote.MovieApi
+import com.example.cero.BuildConfig
+import com.example.cero.data.remote.interceptor.ApiKeyInterceptor
+import com.example.cero.data.remote.api.MovieApi
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -26,7 +27,7 @@ object NetworkModule {
     @Singleton
     fun provideRetrofit(client: OkHttpClient): Retrofit =
         Retrofit.Builder()
-            .baseUrl("https://api.themoviedb.org/3/")
+            .baseUrl(BuildConfig.BASE_URL)
             .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()

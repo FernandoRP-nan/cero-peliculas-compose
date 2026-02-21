@@ -1,4 +1,4 @@
-package com.example.cero.data.remote.response.PopularMovie
+package com.example.cero.data.remote.PopularMovie.model
 
 import com.google.gson.annotations.SerializedName
 

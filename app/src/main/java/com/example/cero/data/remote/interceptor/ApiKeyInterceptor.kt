@@ -1,5 +1,4 @@
-package com.example.cero.data.remote
-import android.util.Log
+package com.example.cero.data.remote.interceptor
 import com.example.cero.BuildConfig
 import okhttp3.Interceptor
 import okhttp3.Response
