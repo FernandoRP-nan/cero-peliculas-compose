@@ -19,6 +19,7 @@ espressoCore = "3.5.1"
 
 # Dependency Injection
 hilt = "2.51.1"
+hiltNavigationCompose = "1.2.0"
 
 # Networking
 retrofit = "2.9.0"
@@ -28,6 +29,9 @@ room = "2.6.1"
 
 # Async
 coroutines = "1.7.3"
+
+#Coil Images
+coil = "2.6.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -50,6 +54,7 @@ androidx-material3 = { group = "androidx.compose.material3", name = "material3" 
 # Dependency Injection (Hilt)
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
 hilt-compiler = { module = "com.google.dagger:hilt-compiler", version.ref = "hilt" }
+androidx-hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
 
 # Networking (Retrofit)
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
@@ -62,6 +67,9 @@ room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 
 # Coroutines
 coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
+
+#Coil Images
+coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

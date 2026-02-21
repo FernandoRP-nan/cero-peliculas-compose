@@ -1,3 +1,4 @@
+import java.util.Properties
 plugins {
     // Android application module
     alias(libs.plugins.android.application)
@@ -27,6 +28,15 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+        val localProperties = Properties()
+        localProperties.load(rootProject.file("local.properties").reader())
+        val tmdbKey = localProperties.getProperty("TMDB_API_KEY") ?: ""
+
+        buildConfigField(
+            "String",
+            "TMDB_API_KEY",
+            "\"$tmdbKey\""
+        )
     }
 
     buildTypes {
@@ -47,6 +57,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
@@ -79,6 +90,7 @@ dependencies {
     // Dependency Injection
     implementation(libs.hilt.android)
     kapt(libs.hilt.compiler)
+    implementation(libs.androidx.hilt.navigation.compose)
 
     // Networking
     implementation(libs.retrofit)
@@ -89,6 +101,9 @@ dependencies {
     implementation(libs.room.ktx)
     kapt(libs.room.compiler)
 
+    //Coil Images
+    implementation(libs.coil.compose)
+
     // Coroutines
     implementation(libs.coroutines.android)
 
@@ -98,7 +113,4 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
-}
-tasks.withType<JavaCompile>().configureEach {
-    options.compilerArgs.add("-Xlint:deprecation")
 }
