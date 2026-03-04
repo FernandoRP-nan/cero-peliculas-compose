@@ -1,4 +1,5 @@
-package com.example.cero.feature.movies.components
+package com.example.cero.feature.movies.presentation.components
+
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row

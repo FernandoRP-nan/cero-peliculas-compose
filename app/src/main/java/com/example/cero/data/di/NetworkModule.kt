@@ -1,5 +1,8 @@
 package com.example.cero.data.di
 
+import android.content.Context
+import com.example.cero.core.network.NetworkMonitor
+import com.example.cero.core.network.NetworkMonitorImpl
 import com.example.cero.data.remote.api.MovieApi
 import com.example.cero.data.remote.interceptor.ApiKeyInterceptor
 import com.example.cero.security.NativeKeys
@@ -9,6 +12,7 @@ import javax.inject.Singleton
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -51,4 +55,12 @@ object NetworkModule {
     @Singleton
     fun provideMovieApi(retrofit: Retrofit): MovieApi =
         retrofit.create(MovieApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideNetworkMonitor(
+        @ApplicationContext context: Context
+    ): NetworkMonitor {
+        return NetworkMonitorImpl(context)
+    }
 }
