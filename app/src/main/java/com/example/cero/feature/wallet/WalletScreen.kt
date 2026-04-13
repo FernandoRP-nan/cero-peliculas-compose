@@ -2,6 +2,7 @@ package com.example.cero.feature.wallet
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -34,8 +35,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -94,7 +95,7 @@ fun WalletScreen(
 
             item {
                 Text(
-                    text = "Tus tarjetas",
+                    text = if (uiState.isWalletOpen) "Todas tus tarjetas" else "Tus tarjetas",
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onBackground
                 )
@@ -142,22 +143,26 @@ private fun WalletHero(
         animationSpec = tween(durationMillis = 900, easing = FastOutSlowInEasing),
         label = "wallet-lid-rotation"
     )
-    val cardsLift by animateFloatAsState(
-        targetValue = if (uiState.isWalletOpen) -96f else 0f,
-        animationSpec = tween(durationMillis = 850, easing = FastOutSlowInEasing),
-        label = "wallet-cards-lift"
-    )
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(290.dp),
+            .height(360.dp),
         contentAlignment = Alignment.Center
     ) {
+        FloatingCardsCluster(
+            cards = uiState.cards,
+            isWalletOpen = uiState.isWalletOpen,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 4.dp)
+        )
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(220.dp)
+                .align(Alignment.BottomCenter)
                 .shadow(18.dp, RoundedCornerShape(34.dp))
                 .clip(RoundedCornerShape(34.dp))
                 .background(
@@ -171,9 +176,8 @@ private fun WalletHero(
                 .clickable(onClick = onWalletPressed)
                 .padding(22.dp)
         ) {
-            WalletCardsPreview(
-                cards = uiState.cards,
-                liftOffset = cardsLift,
+            WalletStatusPill(
+                text = if (uiState.isWalletOpen) "Toca para cerrar la cartera" else "Toca para abrir tu cartera",
                 modifier = Modifier.align(Alignment.TopCenter)
             )
             WalletBase()
@@ -186,34 +190,95 @@ private fun WalletHero(
 }
 
 @Composable
-private fun WalletCardsPreview(
-    cards: List<WalletCardUiModel>,
-    liftOffset: Float,
+private fun WalletStatusPill(
+    text: String,
     modifier: Modifier = Modifier
 ) {
-    Column(
+    Box(
         modifier = modifier
-            .offset(y = liftOffset.dp)
-            .padding(top = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+            .padding(top = 10.dp)
+            .clip(CircleShape)
+            .background(Color(0x33FFF7ED))
+            .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        cards.take(3).forEachIndexed { index, card ->
-            Box(
+        Text(
+            text = text,
+            color = Color(0xFFFDF4E7),
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+}
+
+@Composable
+private fun FloatingCardsCluster(
+    cards: List<WalletCardUiModel>,
+    isWalletOpen: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val visibleCards = cards.take(4)
+    val hiddenCards = (cards.size - visibleCards.size).coerceAtLeast(0)
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(170.dp)
+    ) {
+        visibleCards.forEachIndexed { index, card ->
+            val targetX = when (index) {
+                0 -> (-118).dp
+                1 -> (-24).dp
+                2 -> 38.dp
+                else -> 112.dp
+            }
+            val targetY = when (index) {
+                0 -> 30.dp
+                1 -> 0.dp
+                2 -> 36.dp
+                else -> 8.dp
+            }
+            val animatedX by animateDpAsState(
+                targetValue = if (isWalletOpen) targetX else 0.dp,
+                animationSpec = tween(durationMillis = 520 + (index * 90), easing = FastOutSlowInEasing),
+                label = "floating-card-x-$index"
+            )
+            val animatedY by animateDpAsState(
+                targetValue = if (isWalletOpen) targetY else 70.dp,
+                animationSpec = tween(durationMillis = 520 + (index * 90), easing = FastOutSlowInEasing),
+                label = "floating-card-y-$index"
+            )
+            val animatedRotation by animateFloatAsState(
+                targetValue = if (isWalletOpen) ((index - 1.5f) * 6f) else 0f,
+                animationSpec = tween(durationMillis = 520 + (index * 90), easing = FastOutSlowInEasing),
+                label = "floating-card-rotation-$index"
+            )
+            val animatedAlpha by animateFloatAsState(
+                targetValue = if (isWalletOpen) 1f else 0f,
+                animationSpec = tween(durationMillis = 380 + (index * 70)),
+                label = "floating-card-alpha-$index"
+            )
+
+            Card(
                 modifier = Modifier
-                    .offset(x = (index * 10).dp)
-                    .shadow(10.dp, RoundedCornerShape(22.dp))
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(
-                        Brush.horizontalGradient(
-                            listOf(Color(card.accentStart), Color(card.accentEnd))
-                        )
-                    )
-                    .fillMaxWidth(0.76f)
-                    .height(84.dp)
-                    .padding(horizontal = 18.dp, vertical = 14.dp)
+                    .align(Alignment.BottomCenter)
+                    .offset(x = animatedX, y = animatedY)
+                    .graphicsLayer {
+                        rotationZ = animatedRotation
+                        alpha = animatedAlpha
+                    },
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
             ) {
                 Column(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .width(154.dp)
+                        .height(98.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(Color(card.accentStart), Color(card.accentEnd))
+                            )
+                        )
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
@@ -236,6 +301,40 @@ private fun WalletCardsPreview(
                         )
                     }
                 }
+            }
+        }
+
+        if (hiddenCards > 0) {
+            val chipOffsetX by animateDpAsState(
+                targetValue = if (isWalletOpen) 118.dp else 0.dp,
+                animationSpec = tween(durationMillis = 850, easing = FastOutSlowInEasing),
+                label = "hidden-card-chip-x"
+            )
+            val chipOffsetY by animateDpAsState(
+                targetValue = if (isWalletOpen) (-6).dp else 70.dp,
+                animationSpec = tween(durationMillis = 850, easing = FastOutSlowInEasing),
+                label = "hidden-card-chip-y"
+            )
+            val chipAlpha by animateFloatAsState(
+                targetValue = if (isWalletOpen) 1f else 0f,
+                animationSpec = tween(durationMillis = 700),
+                label = "hidden-card-chip-alpha"
+            )
+
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .offset(x = chipOffsetX, y = chipOffsetY)
+                    .graphicsLayer { alpha = chipAlpha }
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(Color(0xFFF8E7D2))
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
+            ) {
+                Text(
+                    text = "+$hiddenCards mas",
+                    color = Color(0xFF7C4526),
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }
