@@ -9,8 +9,9 @@ import com.example.cero.domain.model.User
 import com.example.cero.domain.respository.UserRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import javax.inject.Inject
 
-class UserRepositoryImpl(
+class UserRepositoryImpl @Inject constructor(
     private val api: UserApi,
     private val dao: UserDao
 ) : UserRepository {
