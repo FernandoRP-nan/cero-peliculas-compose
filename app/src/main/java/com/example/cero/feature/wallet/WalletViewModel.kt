@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.cero.domain.model.CardAccount
 import com.example.cero.domain.model.CardExpense
+import com.example.cero.domain.model.CardExpenseType
 import com.example.cero.domain.model.UiPerformanceMode
 import com.example.cero.domain.model.WalletSnapshot
 import com.example.cero.domain.repository.WalletRepository
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -36,6 +38,9 @@ class WalletViewModel @Inject constructor(
     private val addCardMode = MutableStateFlow(AddCardMode.CREATE)
     private val addCardForm = MutableStateFlow(AddCardFormUiState())
     private val addExpenseForm = MutableStateFlow(AddExpenseFormUiState())
+    private val storedCardsState = MutableStateFlow<List<CardAccount>>(emptyList())
+    private val movementFilterMode = MutableStateFlow(MovementFilterMode.WEEK)
+    private val selectedWeekDayKey = MutableStateFlow<String?>(null)
     private val pendingSelectorScrollToHidden = MutableStateFlow(false)
 
     val uiState: StateFlow<WalletUiState> =
@@ -73,6 +78,15 @@ class WalletViewModel @Inject constructor(
             .combine(addExpenseForm) { state, form ->
                 state.copy(addExpenseForm = form)
             }
+            .combine(walletRepository.observeStoredCards()) { state, cards ->
+                state.copy(storedCards = cards)
+            }
+            .combine(movementFilterMode) { state, mode ->
+                state.copy(movementFilterMode = mode)
+            }
+            .combine(selectedWeekDayKey) { state, selectedDay ->
+                state.copy(selectedWeekDayKey = selectedDay)
+            }
             .combine(walletRepository.observeCardExpenses()) { state, expenses ->
                 state.copy(expenses = expenses)
             }
@@ -89,6 +103,8 @@ class WalletViewModel @Inject constructor(
                     addCardMode = state.addCardMode,
                     addCardForm = state.addCardForm,
                     addExpenseForm = state.addExpenseForm,
+                    movementFilterMode = state.movementFilterMode,
+                    selectedWeekDayKey = state.selectedWeekDayKey,
                     extraCards = emptyList(),
                     editedCards = emptyMap(),
                     expensesByCard = state.expenses.groupBy { it.cardId },
@@ -100,6 +116,14 @@ class WalletViewModel @Inject constructor(
                 started = SharingStarted.WhileSubscribed(5_000),
                 initialValue = WalletUiState()
             )
+
+    init {
+        viewModelScope.launch {
+            walletRepository.observeStoredCards().collect { cards ->
+                storedCardsState.value = cards
+            }
+        }
+    }
 
     fun onWalletPressed() {
         isWalletOpen.update { current ->
@@ -178,10 +202,20 @@ class WalletViewModel @Inject constructor(
         }
     }
 
-    fun onBackFromExpenses() {
-        currentScreen.value = WalletScreenDestination.Wallet
-        isAddExpenseVisible.value = false
-        addExpenseForm.value = AddExpenseFormUiState()
+    fun onBackPressed() {
+        when {
+            isAddExpenseVisible.value -> {
+                isAddExpenseVisible.value = false
+                addExpenseForm.value = AddExpenseFormUiState()
+            }
+            currentScreen.value == WalletScreenDestination.AddExpense -> {
+                currentScreen.value = WalletScreenDestination.Wallet
+                addExpenseForm.value = AddExpenseFormUiState()
+            }
+            isAddCardVisible.value -> onDismissAddCard()
+            isCardSelectorVisible.value -> onDismissCardSelector()
+            isWalletOpen.value -> onWalletPressed()
+        }
     }
 
     fun onAddExpenseFabPressed() {
@@ -192,6 +226,27 @@ class WalletViewModel @Inject constructor(
     fun onDismissAddExpense() {
         isAddExpenseVisible.value = false
         addExpenseForm.value = AddExpenseFormUiState()
+    }
+
+    fun onMovementFilterModeChanged(mode: MovementFilterMode) {
+        movementFilterMode.value = mode
+        if (mode == MovementFilterMode.MONTH) {
+            selectedWeekDayKey.value = null
+        }
+    }
+
+    fun onWeekDaySelected(dayKey: String) {
+        selectedWeekDayKey.value = dayKey
+    }
+
+    fun onExpenseModeChanged(mode: AddExpenseEntryMode) {
+        addExpenseForm.update { current ->
+            current.copy(
+                mode = mode,
+                isMsi = if (mode == AddExpenseEntryMode.CHARGE) current.isMsi else false,
+                installmentCount = if (mode == AddExpenseEntryMode.CHARGE) current.installmentCount else ""
+            ).validated()
+        }
     }
 
     fun onExpenseConceptChanged(value: String) {
@@ -223,9 +278,9 @@ class WalletViewModel @Inject constructor(
         if (!current.canSubmit) return
 
         val cardId = selectedCardId.value ?: return
-        val selectedCard = uiState.value.cards.firstOrNull { it.id == cardId } ?: return
+        val selectedCard = resolveSelectedExpenseCard(cardId) ?: return
         val amount = current.amount.toDoubleOrNull() ?: return
-        if (amount > selectedCard.availableLimitAmount) {
+        if (current.mode == AddExpenseEntryMode.CHARGE && amount > selectedCard.availableLimitAmount) {
             addExpenseForm.value = current.copy(errorMessage = "Ese gasto rebasa el disponible actual")
             return
         }
@@ -233,13 +288,24 @@ class WalletViewModel @Inject constructor(
         val newExpense = CardExpense(
             id = "expense-$cardId-${System.currentTimeMillis()}",
             cardId = cardId,
-            concept = current.concept.ifBlank { "Gasto manual" },
+            concept = current.concept.ifBlank {
+                if (current.mode == AddExpenseEntryMode.PAYMENT) "Pago manual" else "Gasto manual"
+            },
             amount = amount,
             createdAt = LocalDateTime.now(),
-            isMsi = current.isMsi,
-            installmentCount = current.installmentCount.toIntOrNull(),
-            monthlyInstallmentAmount = current.monthlyInstallmentAmount(),
-            financingId = if (current.isMsi) "msi-$cardId-${System.currentTimeMillis()}" else null
+            entryType = if (current.mode == AddExpenseEntryMode.PAYMENT) {
+                CardExpenseType.PAYMENT
+            } else {
+                CardExpenseType.CHARGE
+            },
+            isMsi = current.mode == AddExpenseEntryMode.CHARGE && current.isMsi,
+            installmentCount = if (current.mode == AddExpenseEntryMode.CHARGE) current.installmentCount.toIntOrNull() else null,
+            monthlyInstallmentAmount = if (current.mode == AddExpenseEntryMode.CHARGE) current.monthlyInstallmentAmount() else 0.0,
+            financingId = if (current.mode == AddExpenseEntryMode.CHARGE && current.isMsi) {
+                "msi-$cardId-${System.currentTimeMillis()}"
+            } else {
+                null
+            }
         )
         viewModelScope.launch {
             walletRepository.saveExpense(newExpense)
@@ -324,7 +390,13 @@ class WalletViewModel @Inject constructor(
     }
 
     private fun resolveCard(cardId: String): CardAccount? {
-        return uiState.value.cards.firstOrNull { it.id == cardId }?.toCardAccount()
+        return storedCardsState.value.firstOrNull { it.id == cardId }
+            ?: uiState.value.cards.firstOrNull { it.id == cardId }?.toCardAccount()
+    }
+
+    private fun resolveSelectedExpenseCard(cardId: String): WalletCardUiModel? {
+        return uiState.value.expenseCard?.takeIf { it.id == cardId }
+            ?: uiState.value.cards.firstOrNull { it.id == cardId }
     }
 
     private fun WalletCardUiModel.toCardAccount(): CardAccount {
@@ -334,12 +406,13 @@ class WalletViewModel @Inject constructor(
             bankName = bankName.takeIf { it.isNotBlank() },
             brand = brand.takeIf { it.isNotBlank() },
             lastDigits = lastDigits,
-            creditLimit = extractCreditLimit(limitUsageText),
+            creditLimit = creditLimitAmount,
             availableLimit = availableLimitAmount,
             paymentDay = paymentDayText.filter(Char::isDigit).toIntOrNull() ?: 1,
             closingDay = closingDayText?.filter(Char::isDigit)?.toIntOrNull(),
             monthlyInstallmentPayment = monthlyPaymentAmount,
-            pendingInstallments = installmentsText.filter(Char::isDigit).toIntOrNull() ?: 0,
+            pendingInstallments = 0,
+            pendingMsiBalance = pendingInstallmentsAmount,
             paidMsi = paidMsiText.filter(Char::isDigit).toIntOrNull() ?: 0
         )
     }
@@ -349,6 +422,7 @@ class WalletViewModel @Inject constructor(
             lastDigits = existing?.lastDigits.orEmpty(),
             monthlyInstallmentPayment = existing?.monthlyInstallmentPayment ?: 0.0,
             pendingInstallments = existing?.pendingInstallments ?: 0,
+            pendingMsiBalance = existing?.pendingMsiBalance ?: 0.0,
             paidMsi = existing?.paidMsi ?: 0
         )
     }
@@ -367,6 +441,9 @@ private data class WalletPresentationState(
     val addCardMode: AddCardMode = AddCardMode.CREATE,
     val addCardForm: AddCardFormUiState = AddCardFormUiState(),
     val addExpenseForm: AddExpenseFormUiState = AddExpenseFormUiState(),
+    val movementFilterMode: MovementFilterMode = MovementFilterMode.WEEK,
+    val selectedWeekDayKey: String? = null,
+    val storedCards: List<CardAccount> = emptyList(),
     val expenses: List<CardExpense> = emptyList()
 )
 
@@ -397,7 +474,8 @@ private fun AddExpenseFormUiState.validated(): AddExpenseFormUiState {
     val installments = installmentCount.toIntOrNull()
     val error = when {
         amountValue == null || amountValue <= 0.0 -> "Agrega un monto valido"
-        isMsi && (installments == null || installments !in 2..24) -> "Pon de 2 a 24 meses para este MSI"
+        mode == AddExpenseEntryMode.CHARGE && isMsi && (installments == null || installments !in 2..24) ->
+            "Pon de 2 a 24 meses para este MSI"
         else -> null
     }
 
@@ -427,12 +505,4 @@ private fun String.filterAllowedNumeric(): String {
             }
         }
     }
-}
-
-private fun extractCreditLimit(limitUsageText: String): Double {
-    return limitUsageText.substringAfter("de ", "0")
-        .replace("$", "")
-        .replace(",", "")
-        .trim()
-        .toDoubleOrNull() ?: 0.0
 }

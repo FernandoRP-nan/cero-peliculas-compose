@@ -5,6 +5,7 @@ import com.example.cero.data.mapper.toDomain
 import com.example.cero.data.mapper.toEntity
 import com.example.cero.domain.model.CardAccount
 import com.example.cero.domain.model.CardExpense
+import com.example.cero.domain.model.CardExpenseType
 import com.example.cero.domain.model.WalletSnapshot
 import com.example.cero.domain.repository.WalletRepository
 import kotlinx.coroutines.flow.Flow
@@ -25,16 +26,23 @@ class LocalWalletRepository @Inject constructor(
         ) { storedCards, expenses ->
             val expensesByCard = expenses.groupBy { it.cardId }
             val adjustedCards = storedCards.map { card ->
-                val cardExpenses = expensesByCard[card.id].orEmpty()
-                val spent = cardExpenses.sumOf(CardExpense::amount)
-                val addedMsiMonthly = cardExpenses.sumOf { expense ->
-                    if (expense.isMsi) expense.monthlyInstallmentAmount else 0.0
-                }
-                val addedMsiCount = cardExpenses.count { it.isMsi }
+                val cardMovements = expensesByCard[card.id].orEmpty()
+                val totalCharges = cardMovements
+                    .filter { it.entryType == CardExpenseType.CHARGE }
+                    .sumOf(CardExpense::amount)
+                val totalPayments = cardMovements
+                    .filter { it.entryType == CardExpenseType.PAYMENT }
+                    .sumOf(CardExpense::amount)
+                val msiPurchases = cardMovements.filter { it.entryType == CardExpenseType.CHARGE && it.isMsi }
+                val addedMsiMonthly = msiPurchases.sumOf { it.monthlyInstallmentAmount }
+                val pendingMsiBalance = msiPurchases.sumOf(CardExpense::amount)
+                val adjustedAvailable = (card.availableLimit - totalCharges + totalPayments)
+                    .coerceIn(0.0, card.creditLimit)
                 card.copy(
-                    availableLimit = (card.availableLimit - spent).coerceAtLeast(0.0),
+                    availableLimit = adjustedAvailable,
                     monthlyInstallmentPayment = card.monthlyInstallmentPayment + addedMsiMonthly,
-                    pendingInstallments = card.pendingInstallments + addedMsiCount
+                    pendingInstallments = card.pendingInstallments,
+                    pendingMsiBalance = card.pendingMsiBalance + pendingMsiBalance
                 )
             }
             val totalDebt = adjustedCards.sumOf { it.usedLimit }

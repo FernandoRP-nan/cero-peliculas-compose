@@ -52,7 +52,7 @@ fun WalletRoute(
         onAddExpensePressed = { cardId -> viewModel.onAddExpensePressed(cardId, performanceMode) },
         onHiddenCardsPressed = viewModel::onHiddenCardsPressed,
         onHiddenCardsScrollHandled = viewModel::onHiddenCardsScrollHandled,
-        onBackFromExpenses = viewModel::onBackFromExpenses,
+        onBackPressed = viewModel::onBackPressed,
         onAddCardPressed = viewModel::onAddCardPressed,
         onDismissAddCard = viewModel::onDismissAddCard,
         onShortNameChanged = viewModel::onShortNameChanged,
@@ -66,8 +66,11 @@ fun WalletRoute(
         onSaveCard = viewModel::onSaveCard,
         onAddExpenseFabPressed = viewModel::onAddExpenseFabPressed,
         onDismissAddExpense = viewModel::onDismissAddExpense,
+        onMovementFilterModeChanged = viewModel::onMovementFilterModeChanged,
+        onWeekDaySelected = viewModel::onWeekDaySelected,
         onExpenseConceptChanged = viewModel::onExpenseConceptChanged,
         onExpenseAmountChanged = viewModel::onExpenseAmountChanged,
+        onExpenseModeChanged = viewModel::onExpenseModeChanged,
         onExpenseIsMsiChanged = viewModel::onExpenseIsMsiChanged,
         onExpenseInstallmentCountChanged = viewModel::onExpenseInstallmentCountChanged,
         onSaveExpense = viewModel::onSaveExpense
@@ -86,7 +89,7 @@ fun WalletScreen(
     onAddExpensePressed: (String) -> Unit,
     onHiddenCardsPressed: () -> Unit,
     onHiddenCardsScrollHandled: () -> Unit,
-    onBackFromExpenses: () -> Unit,
+    onBackPressed: () -> Unit,
     onAddCardPressed: () -> Unit,
     onDismissAddCard: () -> Unit,
     onShortNameChanged: (String) -> Unit,
@@ -100,8 +103,11 @@ fun WalletScreen(
     onSaveCard: () -> Unit,
     onAddExpenseFabPressed: () -> Unit,
     onDismissAddExpense: () -> Unit,
+    onMovementFilterModeChanged: (MovementFilterMode) -> Unit,
+    onWeekDaySelected: (String) -> Unit,
     onExpenseConceptChanged: (String) -> Unit,
     onExpenseAmountChanged: (String) -> Unit,
+    onExpenseModeChanged: (AddExpenseEntryMode) -> Unit,
     onExpenseIsMsiChanged: (Boolean) -> Unit,
     onExpenseInstallmentCountChanged: (String) -> Unit,
     onSaveExpense: () -> Unit,
@@ -122,11 +128,11 @@ fun WalletScreen(
             uiState.isWalletOpen
     ) {
         when {
-            uiState.isAddExpenseVisible -> onDismissAddExpense()
-            uiState.currentScreen == WalletScreenDestination.AddExpense -> onBackFromExpenses()
-            uiState.isAddCardVisible -> onDismissAddCard()
-            uiState.isCardSelectorVisible -> onDismissCardSelector()
-            uiState.isWalletOpen -> onWalletPressed()
+            uiState.isAddExpenseVisible ||
+                uiState.currentScreen != WalletScreenDestination.Wallet ||
+                uiState.isAddCardVisible ||
+                uiState.isCardSelectorVisible ||
+                uiState.isWalletOpen -> onBackPressed()
         }
     }
 
@@ -237,11 +243,14 @@ fun WalletScreen(
                     AddExpenseScreen(
                         uiState = uiState,
                         performanceMode = performanceMode,
-                        onBackPressed = onBackFromExpenses,
+                        onBackPressed = onBackPressed,
                         onAddExpensePressed = onAddExpenseFabPressed,
                         onDismissAddExpense = onDismissAddExpense,
+                        onMovementFilterModeChanged = onMovementFilterModeChanged,
+                        onWeekDaySelected = onWeekDaySelected,
                         onExpenseConceptChanged = onExpenseConceptChanged,
                         onExpenseAmountChanged = onExpenseAmountChanged,
+                        onExpenseModeChanged = onExpenseModeChanged,
                         onExpenseIsMsiChanged = onExpenseIsMsiChanged,
                         onExpenseInstallmentCountChanged = onExpenseInstallmentCountChanged,
                         onSaveExpense = onSaveExpense
@@ -292,6 +301,8 @@ private fun WalletScreenPreviewClosed() {
                         bankName = "BBVA",
                         brand = "Visa",
                         lastDigits = "4821",
+                        creditLimitAmount = 25000.0,
+                        usedLimitAmount = 12400.0,
                         limitUsageText = "$12,400.00 de $25,000.00",
                         availableLimitText = "$12,600.00",
                         availableLimitAmount = 12600.0,
@@ -299,6 +310,7 @@ private fun WalletScreenPreviewClosed() {
                         monthlyPaymentAmount = 1180.0,
                         paidMsiText = "2 MSI pagados",
                         installmentsText = "8 MSI pendientes",
+                        pendingInstallmentsAmount = 8420.0,
                         paymentDayText = "Pago el dia 12",
                         closingDayText = "Corte el dia 7",
                         accentStart = 0xFF355C7D,
@@ -310,14 +322,16 @@ private fun WalletScreenPreviewClosed() {
                         bankName = "Nu",
                         brand = "Mastercard",
                         lastDigits = "1904",
+                        creditLimitAmount = 18000.0,
+                        usedLimitAmount = 6250.0,
                         limitUsageText = "$6,250.00 de $18,000.00",
                         availableLimitText = "$11,750.00",
                         availableLimitAmount = 11750.0,
                         monthlyPaymentText = "$750.00",
                         monthlyPaymentAmount = 750.0,
                         paidMsiText = "2 MSI pagados",
-
                         installmentsText = "5 MSI pendientes",
+                        pendingInstallmentsAmount = 5150.0,
                         paymentDayText = "Pago el dia 18",
                         closingDayText = "Corte el dia 13",
                         accentStart = 0xFF0F766E,
@@ -334,7 +348,7 @@ private fun WalletScreenPreviewClosed() {
             onAddExpensePressed = {},
             onHiddenCardsPressed = {},
             onHiddenCardsScrollHandled = {},
-            onBackFromExpenses = {},
+            onBackPressed = {},
             onAddCardPressed = {},
             onDismissAddCard = {},
             onShortNameChanged = {},
@@ -348,8 +362,11 @@ private fun WalletScreenPreviewClosed() {
             onSaveCard = {},
             onAddExpenseFabPressed = {},
             onDismissAddExpense = {},
+            onMovementFilterModeChanged = {},
+            onWeekDaySelected = {},
             onExpenseConceptChanged = {},
             onExpenseAmountChanged = {},
+            onExpenseModeChanged = {},
             onExpenseIsMsiChanged = {},
             onExpenseInstallmentCountChanged = {},
             onSaveExpense = {}

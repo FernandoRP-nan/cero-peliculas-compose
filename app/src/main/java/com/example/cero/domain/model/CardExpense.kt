@@ -8,8 +8,14 @@ data class CardExpense(
     val concept: String,
     val amount: Double,
     val createdAt: LocalDateTime,
+    val entryType: CardExpenseType = CardExpenseType.CHARGE,
     val isMsi: Boolean = false,
     val installmentCount: Int? = null,
     val monthlyInstallmentAmount: Double = 0.0,
     val financingId: String? = null
 )
+
+enum class CardExpenseType {
+    CHARGE,
+    PAYMENT
+}

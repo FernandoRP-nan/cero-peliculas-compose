@@ -1,6 +1,9 @@
 package com.example.cero.feature.wallet
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -8,12 +11,14 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -37,6 +42,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,8 +53,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.cero.domain.model.UiPerformanceMode
+import java.text.NumberFormat
+import java.util.Locale
 import androidx.compose.foundation.text.KeyboardOptions as FoundationKeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
+
+private val addExpenseCurrencyFormatter = NumberFormat.getCurrencyInstance(Locale("es", "MX"))
 
 @Composable
 internal fun AddExpenseScreen(
@@ -57,8 +67,11 @@ internal fun AddExpenseScreen(
     onBackPressed: () -> Unit,
     onAddExpensePressed: () -> Unit,
     onDismissAddExpense: () -> Unit,
+    onMovementFilterModeChanged: (MovementFilterMode) -> Unit,
+    onWeekDaySelected: (String) -> Unit,
     onExpenseConceptChanged: (String) -> Unit,
     onExpenseAmountChanged: (String) -> Unit,
+    onExpenseModeChanged: (AddExpenseEntryMode) -> Unit,
     onExpenseIsMsiChanged: (Boolean) -> Unit,
     onExpenseInstallmentCountChanged: (String) -> Unit,
     onSaveExpense: () -> Unit
@@ -114,11 +127,24 @@ internal fun AddExpenseScreen(
             }
 
             item {
-                Text(
-                    text = "Movimientos por dia",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Text(
+                        text = "Movimientos",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    MovementFilterToggle(
+                        selectedMode = uiState.movementFilterMode,
+                        performanceMode = performanceMode,
+                        onModeSelected = onMovementFilterModeChanged
+                    )
+                    AnimatedVisibility(visible = uiState.movementFilterMode == MovementFilterMode.WEEK) {
+                        WeekDaySelector(
+                            chips = uiState.weekDayChips,
+                            onDaySelected = onWeekDaySelected
+                        )
+                    }
+                }
             }
 
             if (uiState.expenseGroups.isEmpty()) {
@@ -134,12 +160,12 @@ internal fun AddExpenseScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Text(
-                                text = "Todavia no hay gastos en esta tarjeta",
+                                text = "Todavia no hay movimientos en esta tarjeta",
                                 fontWeight = FontWeight.Bold,
                                 style = MaterialTheme.typography.titleMedium
                             )
                             Text(
-                                text = "Usa el boton flotante para registrar el primero.",
+                                text = "Usa el boton flotante para registrar un gasto o un pago.",
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f)
                             )
                         }
@@ -171,6 +197,7 @@ internal fun AddExpenseScreen(
             uiState = uiState,
             performanceMode = performanceMode,
             onDismiss = onDismissAddExpense,
+            onExpenseModeChanged = onExpenseModeChanged,
             onConceptChanged = onExpenseConceptChanged,
             onAmountChanged = onExpenseAmountChanged,
             onIsMsiChanged = onExpenseIsMsiChanged,
@@ -247,6 +274,96 @@ private fun ExpenseCardMetric(
 }
 
 @Composable
+private fun MovementFilterToggle(
+    selectedMode: MovementFilterMode,
+    performanceMode: UiPerformanceMode,
+    onModeSelected: (MovementFilterMode) -> Unit
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        FilterMotionChip(
+            text = "Semana",
+            selected = selectedMode == MovementFilterMode.WEEK,
+            compact = performanceMode == UiPerformanceMode.LOW,
+            onClick = { onModeSelected(MovementFilterMode.WEEK) }
+        )
+        FilterMotionChip(
+            text = "Mes",
+            selected = selectedMode == MovementFilterMode.MONTH,
+            compact = performanceMode == UiPerformanceMode.LOW,
+            onClick = { onModeSelected(MovementFilterMode.MONTH) }
+        )
+    }
+}
+
+@Composable
+private fun FilterMotionChip(
+    text: String,
+    selected: Boolean,
+    compact: Boolean,
+    onClick: () -> Unit
+) {
+    val background by animateColorAsState(
+        targetValue = if (selected) Color(0xFF9B5D35) else Color(0xFFE8D8C7),
+        animationSpec = tween(durationMillis = if (compact) 140 else 220, easing = FastOutSlowInEasing),
+        label = "filter-chip-bg"
+    )
+    val content by animateColorAsState(
+        targetValue = if (selected) Color(0xFFFFF7ED) else Color(0xFF5B3A24),
+        animationSpec = tween(durationMillis = if (compact) 140 else 220, easing = FastOutSlowInEasing),
+        label = "filter-chip-content"
+    )
+
+    Box(
+        modifier = Modifier
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(20.dp))
+            .background(background)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 12.dp)
+    ) {
+        Text(text = text, color = content, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun WeekDaySelector(
+    chips: List<MovementDayChipUiModel>,
+    onDaySelected: (String) -> Unit
+) {
+    Row(
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        chips.forEach { chip ->
+            val background by animateColorAsState(
+                targetValue = if (chip.isSelected) Color(0xFF243B53) else Color(0xFFF3E7D8),
+                animationSpec = tween(180),
+                label = "week-chip-bg"
+            )
+            Box(
+                modifier = Modifier
+                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(20.dp))
+                    .background(background)
+                    .clickable { onDaySelected(chip.key) }
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = chip.label,
+                        color = if (chip.isSelected) Color.White else Color(0xFF5B3A24),
+                        fontSize = 12.sp
+                    )
+                    Text(
+                        text = chip.dayNumber,
+                        color = if (chip.isSelected) Color.White else Color(0xFF2D1D14),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun ExpenseDayGroup(group: ExpenseDayGroupUiModel) {
     Card(
         shape = androidx.compose.foundation.shape.RoundedCornerShape(26.dp),
@@ -300,7 +417,8 @@ private fun ExpenseDayGroup(group: ExpenseDayGroupUiModel) {
                     }
                     Text(
                         text = expense.amountText,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = if (expense.isPositive) Color(0xFF166534) else MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
@@ -313,17 +431,28 @@ private fun AddExpenseOverlay(
     uiState: WalletUiState,
     performanceMode: UiPerformanceMode,
     onDismiss: () -> Unit,
+    onExpenseModeChanged: (AddExpenseEntryMode) -> Unit,
     onConceptChanged: (String) -> Unit,
     onAmountChanged: (String) -> Unit,
     onIsMsiChanged: (Boolean) -> Unit,
     onInstallmentCountChanged: (String) -> Unit,
     onSaveExpense: () -> Unit
 ) {
+    val overlayScrollState = rememberScrollState()
+    val expensePreview = remember(uiState.expenseCard, uiState.addExpenseForm) {
+        buildExpensePreview(
+            card = uiState.expenseCard,
+            form = uiState.addExpenseForm
+        )
+    }
+
     AnimatedVisibility(
         visible = uiState.isAddExpenseVisible,
         enter = fadeIn(animationSpec = tween(160)) + scaleIn(initialScale = 0.96f),
         exit = fadeOut(animationSpec = tween(120)) + scaleOut(targetScale = 0.96f)
     ) {
+        BackHandler(onBack = onDismiss)
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -337,7 +466,6 @@ private fun AddExpenseOverlay(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
                     .wrapContentHeight()
                     .heightIn(max = if (performanceMode == UiPerformanceMode.LOW) 420.dp else 660.dp)
                     .clickable(
@@ -349,84 +477,125 @@ private fun AddExpenseOverlay(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFF9F3EA))
             ) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(
-                        text = "Nuevo gasto",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Registralo rapido para recalcular tu disponible.",
-                        color = Color(0xFF6A5548)
-                    )
-
-                    OutlinedTextField(
-                        value = uiState.addExpenseForm.concept,
-                        onValueChange = onConceptChanged,
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Concepto") },
-                        placeholder = { Text("Cafe, super, gasolina") },
-                        singleLine = true
-                    )
-
-                    OutlinedTextField(
-                        value = uiState.addExpenseForm.amount,
-                        onValueChange = onAmountChanged,
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Monto*") },
-                        placeholder = { Text("350") },
-                        singleLine = true,
-                        keyboardOptions = FoundationKeyboardOptions(keyboardType = KeyboardType.Decimal)
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    Column(
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .verticalScroll(overlayScrollState)
+                            .padding(start = 20.dp, top = 20.dp, end = 20.dp, bottom = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        Column {
-                            Text(
-                                text = "¿Es compra a MSI?",
-                                fontWeight = FontWeight.SemiBold
+                        Text(
+                            text = if (uiState.addExpenseForm.mode == AddExpenseEntryMode.PAYMENT) "Registrar pago" else "Nuevo gasto",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = if (uiState.addExpenseForm.mode == AddExpenseEntryMode.PAYMENT) {
+                                "Un pago libera credito y baja lo que debes."
+                            } else {
+                                "Un gasto baja disponible. Si es MSI, tambien suma al pago mensual."
+                            },
+                            color = Color(0xFF6A5548)
+                        )
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            FilterMotionChip(
+                                text = "Gasto",
+                                selected = uiState.addExpenseForm.mode == AddExpenseEntryMode.CHARGE,
+                                compact = performanceMode == UiPerformanceMode.LOW,
+                                onClick = { onExpenseModeChanged(AddExpenseEntryMode.CHARGE) }
                             )
-                            Text(
-                                text = "Si activas esto, el gasto quedara identificado como MSI.",
-                                color = Color(0xFF6A5548),
-                                fontSize = 12.sp
-                            )
-                            Switch(
-                                checked = uiState.addExpenseForm.isMsi,
-                                onCheckedChange = onIsMsiChanged
+                            FilterMotionChip(
+                                text = "Pago",
+                                selected = uiState.addExpenseForm.mode == AddExpenseEntryMode.PAYMENT,
+                                compact = performanceMode == UiPerformanceMode.LOW,
+                                onClick = { onExpenseModeChanged(AddExpenseEntryMode.PAYMENT) }
                             )
                         }
 
-                    }
+                        ExpenseLiveSummary(preview = expensePreview)
 
-                    if (uiState.addExpenseForm.isMsi) {
                         OutlinedTextField(
-                            value = uiState.addExpenseForm.installmentCount,
-                            onValueChange = onInstallmentCountChanged,
+                            value = uiState.addExpenseForm.concept,
+                            onValueChange = onConceptChanged,
                             modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Meses sin intereses") },
-                            placeholder = { Text("Ejemplo: 3, 6, 12") },
+                            label = { Text(if (uiState.addExpenseForm.mode == AddExpenseEntryMode.PAYMENT) "Referencia" else "Concepto") },
+                            placeholder = {
+                                Text(
+                                    if (uiState.addExpenseForm.mode == AddExpenseEntryMode.PAYMENT) {
+                                        "Pago al corte, abono, transferencia"
+                                    } else {
+                                        "Cafe, super, gasolina"
+                                    }
+                                )
+                            },
+                            singleLine = true
+                        )
+
+                        OutlinedTextField(
+                            value = uiState.addExpenseForm.amount,
+                            onValueChange = onAmountChanged,
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Monto*") },
+                            placeholder = { Text("350") },
                             singleLine = true,
-                            keyboardOptions = FoundationKeyboardOptions(keyboardType = KeyboardType.Number)
+                            keyboardOptions = FoundationKeyboardOptions(keyboardType = KeyboardType.Decimal)
                         )
+
+                        if (uiState.addExpenseForm.mode == AddExpenseEntryMode.CHARGE) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Es compra a MSI",
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        text = "Quedara identificada para el pago mensual y futuro seguimiento.",
+                                        color = Color(0xFF6A5548),
+                                        fontSize = 12.sp
+                                    )
+                                }
+                                Switch(
+                                    checked = uiState.addExpenseForm.isMsi,
+                                    onCheckedChange = onIsMsiChanged
+                                )
+                            }
+
+                            if (uiState.addExpenseForm.isMsi) {
+                                OutlinedTextField(
+                                    value = uiState.addExpenseForm.installmentCount,
+                                    onValueChange = onInstallmentCountChanged,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    label = { Text("Meses sin intereses") },
+                                    placeholder = { Text("Ejemplo: 3, 6, 12") },
+                                    singleLine = true,
+                                    keyboardOptions = FoundationKeyboardOptions(keyboardType = KeyboardType.Number)
+                                )
+                            }
+                        }
+
+                        uiState.addExpenseForm.errorMessage?.let { error ->
+                            Text(
+                                text = error,
+                                color = Color(0xFF991B1B),
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
 
-                    uiState.addExpenseForm.errorMessage?.let { error ->
-                        Text(
-                            text = error,
-                            color = Color(0xFF991B1B),
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFFF9F3EA))
+                            .padding(start = 20.dp, end = 20.dp, bottom = 20.dp, top = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
                         Box(
                             modifier = Modifier
                                 .weight(1f)
@@ -453,7 +622,7 @@ private fun AddExpenseOverlay(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "Guardar gasto",
+                                text = if (uiState.addExpenseForm.mode == AddExpenseEntryMode.PAYMENT) "Registrar pago" else "Guardar gasto",
                                 color = Color(0xFFFFF7ED),
                                 fontWeight = FontWeight.Bold
                             )
@@ -463,4 +632,95 @@ private fun AddExpenseOverlay(
             }
         }
     }
+}
+
+@Composable
+private fun ExpenseLiveSummary(preview: ExpensePreviewUiModel) {
+    Card(
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF1E4D4))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            ExpensePreviewMetric(title = "Disponible", value = preview.availableText)
+            ExpensePreviewMetric(title = "Debes", value = preview.debtText)
+            ExpensePreviewMetric(title = "MSI al mes", value = preview.monthlyText)
+        }
+    }
+}
+
+@Composable
+private fun RowScope.ExpensePreviewMetric(
+    title: String,
+    value: String
+) {
+    Column(
+        modifier = Modifier.weight(1f),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = title,
+            color = Color(0xFF6A5548),
+            fontSize = 12.sp
+        )
+        Text(
+            text = value,
+            color = Color(0xFF2D1D14),
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+private data class ExpensePreviewUiModel(
+    val availableText: String,
+    val debtText: String,
+    val monthlyText: String
+)
+
+private fun buildExpensePreview(
+    card: WalletCardUiModel?,
+    form: AddExpenseFormUiState
+): ExpensePreviewUiModel {
+    if (card == null) {
+        return ExpensePreviewUiModel(
+            availableText = addExpenseCurrencyFormatter.format(0),
+            debtText = addExpenseCurrencyFormatter.format(0),
+            monthlyText = addExpenseCurrencyFormatter.format(0)
+        )
+    }
+
+    val amount = form.amount.toDoubleOrNull() ?: 0.0
+    val isCharge = form.mode == AddExpenseEntryMode.CHARGE
+    val projectedAvailable = when {
+        amount <= 0.0 -> card.availableLimitAmount
+        isCharge -> (card.availableLimitAmount - amount).coerceAtLeast(0.0)
+        else -> (card.availableLimitAmount + amount).coerceAtMost(card.creditLimitAmount)
+    }
+    val projectedDebt = when {
+        amount <= 0.0 -> card.usedLimitAmount
+        isCharge -> card.usedLimitAmount + amount
+        else -> (card.usedLimitAmount - amount).coerceAtLeast(0.0)
+    }
+    val projectedMonthly = card.monthlyPaymentAmount + if (isCharge && form.isMsi) {
+        form.previewMonthlyInstallmentAmount()
+    } else {
+        0.0
+    }
+
+    return ExpensePreviewUiModel(
+        availableText = addExpenseCurrencyFormatter.format(projectedAvailable),
+        debtText = addExpenseCurrencyFormatter.format(projectedDebt),
+        monthlyText = addExpenseCurrencyFormatter.format(projectedMonthly)
+    )
+}
+
+private fun AddExpenseFormUiState.previewMonthlyInstallmentAmount(): Double {
+    val amountValue = amount.toDoubleOrNull() ?: return 0.0
+    val installments = installmentCount.toIntOrNull() ?: return 0.0
+    if (!isMsi || installments <= 0) return 0.0
+    return amountValue / installments
 }

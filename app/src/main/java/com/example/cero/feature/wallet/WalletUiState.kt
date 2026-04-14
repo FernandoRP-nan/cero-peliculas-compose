@@ -20,6 +20,9 @@ data class WalletUiState(
     val addCardMode: AddCardMode = AddCardMode.CREATE,
     val addCardForm: AddCardFormUiState = AddCardFormUiState(),
     val addExpenseForm: AddExpenseFormUiState = AddExpenseFormUiState(),
+    val movementFilterMode: MovementFilterMode = MovementFilterMode.WEEK,
+    val weekDayChips: List<MovementDayChipUiModel> = emptyList(),
+    val selectedWeekDayKey: String? = null,
     val cards: List<WalletCardUiModel> = emptyList(),
     val expenseCard: WalletCardUiModel? = null,
     val expenseGroups: List<ExpenseDayGroupUiModel> = emptyList()
@@ -41,12 +44,15 @@ data class WalletCardUiModel(
     val bankName: String,
     val brand: String,
     val lastDigits: String,
+    val creditLimitAmount: Double,
+    val usedLimitAmount: Double,
     val limitUsageText: String,
     val availableLimitText: String,
     val availableLimitAmount: Double,
     val monthlyPaymentText: String,
     val monthlyPaymentAmount: Double,
     val installmentsText: String,
+    val pendingInstallmentsAmount: Double,
     val paidMsiText: String,
     val paymentDayText: String,
     val closingDayText: String?,
@@ -69,6 +75,7 @@ data class AddCardFormUiState(
 )
 
 data class AddExpenseFormUiState(
+    val mode: AddExpenseEntryMode = AddExpenseEntryMode.CHARGE,
     val concept: String = "",
     val amount: String = "",
     val isMsi: Boolean = false,
@@ -89,8 +96,26 @@ data class ExpenseItemUiModel(
     val concept: String,
     val amountText: String,
     val timeLabel: String,
-    val supportingText: String? = null
+    val supportingText: String? = null,
+    val isPositive: Boolean = false
 )
+
+data class MovementDayChipUiModel(
+    val key: String,
+    val label: String,
+    val dayNumber: String,
+    val isSelected: Boolean
+)
+
+enum class MovementFilterMode {
+    WEEK,
+    MONTH
+}
+
+enum class AddExpenseEntryMode {
+    CHARGE,
+    PAYMENT
+}
 
 enum class CardBrandOption {
     NONE,

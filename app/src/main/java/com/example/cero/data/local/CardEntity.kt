@@ -16,5 +16,6 @@ data class CardEntity(
     val closingDay: Int?,
     val monthlyInstallmentPayment: Double,
     val pendingInstallments: Int,
+    val pendingMsiBalance: Double,
     val paidMsi: Int
 )

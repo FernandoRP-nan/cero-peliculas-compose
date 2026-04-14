@@ -96,7 +96,7 @@ internal fun WalletCardItem(card: WalletCardUiModel) {
 
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 SummaryChip(title = "MSI pagados", value = card.paidMsiText)
-                SummaryChip(title = "MSI pendientes", value = card.installmentsText)
+                SummaryChip(title = "Pendiente MSI", value = card.installmentsText)
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {

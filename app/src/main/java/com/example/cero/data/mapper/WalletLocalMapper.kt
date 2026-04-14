@@ -4,6 +4,7 @@ import com.example.cero.data.local.CardEntity
 import com.example.cero.data.local.CardExpenseEntity
 import com.example.cero.domain.model.CardAccount
 import com.example.cero.domain.model.CardExpense
+import com.example.cero.domain.model.CardExpenseType
 import java.time.LocalDateTime
 
 fun CardEntity.toDomain(): CardAccount {
@@ -19,6 +20,7 @@ fun CardEntity.toDomain(): CardAccount {
         closingDay = closingDay,
         monthlyInstallmentPayment = monthlyInstallmentPayment,
         pendingInstallments = pendingInstallments,
+        pendingMsiBalance = pendingMsiBalance,
         paidMsi = paidMsi
     )
 }
@@ -36,6 +38,7 @@ fun CardAccount.toEntity(): CardEntity {
         closingDay = closingDay,
         monthlyInstallmentPayment = monthlyInstallmentPayment,
         pendingInstallments = pendingInstallments,
+        pendingMsiBalance = pendingMsiBalance,
         paidMsi = paidMsi
     )
 }
@@ -47,6 +50,7 @@ fun CardExpenseEntity.toDomain(): CardExpense {
         concept = concept,
         amount = amount,
         createdAt = LocalDateTime.parse(createdAt),
+        entryType = CardExpenseType.valueOf(entryType),
         isMsi = isMsi,
         installmentCount = installmentCount,
         monthlyInstallmentAmount = monthlyInstallmentAmount,
@@ -61,6 +65,7 @@ fun CardExpense.toEntity(): CardExpenseEntity {
         concept = concept,
         amount = amount,
         createdAt = createdAt.toString(),
+        entryType = entryType.name,
         isMsi = isMsi,
         installmentCount = installmentCount,
         monthlyInstallmentAmount = monthlyInstallmentAmount,

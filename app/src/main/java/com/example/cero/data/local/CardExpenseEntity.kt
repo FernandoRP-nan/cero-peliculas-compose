@@ -10,6 +10,7 @@ data class CardExpenseEntity(
     val concept: String,
     val amount: Double,
     val createdAt: String,
+    val entryType: String,
     val isMsi: Boolean,
     val installmentCount: Int?,
     val monthlyInstallmentAmount: Double,

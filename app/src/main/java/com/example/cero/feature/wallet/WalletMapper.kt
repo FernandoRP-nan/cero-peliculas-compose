@@ -2,8 +2,11 @@ package com.example.cero.feature.wallet
 
 import com.example.cero.domain.model.CardAccount
 import com.example.cero.domain.model.CardExpense
+import com.example.cero.domain.model.CardExpenseType
 import com.example.cero.domain.model.WalletSnapshot
 import java.text.NumberFormat
+import java.time.DayOfWeek
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -11,6 +14,7 @@ import kotlin.math.roundToInt
 private val currencyFormatter = NumberFormat.getCurrencyInstance(Locale("es", "MX"))
 private val expenseDateFormatter = DateTimeFormatter.ofPattern("EEEE d 'de' MMMM", Locale("es", "MX"))
 private val expenseTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale("es", "MX"))
+private val weekDayFormatter = DateTimeFormatter.ofPattern("EEE", Locale("es", "MX"))
 
 internal fun WalletSnapshot.toUiState(
     currentScreen: WalletScreenDestination,
@@ -25,6 +29,8 @@ internal fun WalletSnapshot.toUiState(
     addCardMode: AddCardMode,
     addCardForm: AddCardFormUiState,
     addExpenseForm: AddExpenseFormUiState,
+    movementFilterMode: MovementFilterMode,
+    selectedWeekDayKey: String?,
     extraCards: List<CardAccount>,
     editedCards: Map<String, CardAccount>,
     expensesByCard: Map<String, List<CardExpense>>
@@ -41,6 +47,18 @@ internal fun WalletSnapshot.toUiState(
     }
     val cardsUi = mergedCards.mapIndexed { index, card -> card.toUiModel(index) }
     val selectedExpenseCard = cardsUi.firstOrNull { it.id == selectedCardId }
+    val allCardMovements = expensesByCard[selectedCardId].orEmpty()
+    val weekDayChips = buildWeekDayChips(
+        movements = allCardMovements,
+        selectedKey = selectedWeekDayKey
+    )
+    val effectiveWeekDayKey = selectedWeekDayKey ?: weekDayChips.firstOrNull()?.key
+    val filteredMovements = when (movementFilterMode) {
+        MovementFilterMode.WEEK -> allCardMovements.filter {
+            it.createdAt.toLocalDate().toString() == effectiveWeekDayKey
+        }
+        MovementFilterMode.MONTH -> allCardMovements
+    }
 
     return WalletUiState(
         totalDebt = currencyFormatter.format(totalDebt),
@@ -60,9 +78,14 @@ internal fun WalletSnapshot.toUiState(
         addCardMode = addCardMode,
         addCardForm = addCardForm,
         addExpenseForm = addExpenseForm,
+        movementFilterMode = movementFilterMode,
+        weekDayChips = weekDayChips.map { chip ->
+            chip.copy(isSelected = chip.key == effectiveWeekDayKey)
+        },
+        selectedWeekDayKey = effectiveWeekDayKey,
         cards = cardsUi,
         expenseCard = selectedExpenseCard,
-        expenseGroups = expensesByCard[selectedCardId].orEmpty().toExpenseGroups()
+        expenseGroups = filteredMovements.toExpenseGroups()
     )
 }
 
@@ -89,12 +112,15 @@ private fun CardAccount.toUiModel(index: Int): WalletCardUiModel {
         bankName = bankName.orEmpty(),
         brand = brand.orEmpty(),
         lastDigits = lastDigits,
+        creditLimitAmount = creditLimit,
+        usedLimitAmount = usedLimit,
         limitUsageText = "${currencyFormatter.format(usedLimit)} de ${currencyFormatter.format(creditLimit)}",
         availableLimitText = currencyFormatter.format(availableLimit),
         availableLimitAmount = availableLimit,
         monthlyPaymentText = currencyFormatter.format(monthlyInstallmentPayment),
         monthlyPaymentAmount = monthlyInstallmentPayment,
-        installmentsText = "$pendingInstallments MSI pendientes",
+        installmentsText = currencyFormatter.format(pendingMsiBalance),
+        pendingInstallmentsAmount = pendingMsiBalance,
         accentStart = palette.first,
         accentEnd = palette.second,
         paidMsiText = "$paidMsi MSI pagados",
@@ -114,18 +140,61 @@ private fun List<CardExpense>.toExpenseGroups(): List<ExpenseDayGroupUiModel> {
                 expenses = expenses.sortedByDescending { it.createdAt }.map { expense ->
                     ExpenseItemUiModel(
                         id = expense.id,
-                        concept = expense.concept,
-                        amountText = currencyFormatter.format(expense.amount),
+                        concept = expense.displayConcept(),
+                        amountText = buildAmountLabel(expense),
                         timeLabel = expense.createdAt.format(expenseTimeFormatter),
                         supportingText = if (expense.isMsi && expense.installmentCount != null) {
                             "${expense.installmentCount} MSI · ${currencyFormatter.format(expense.monthlyInstallmentAmount)}/mes"
+                        } else if (expense.entryType == CardExpenseType.PAYMENT) {
+                            "Pago registrado manualmente"
                         } else {
                             null
-                        }
+                        },
+                        isPositive = expense.entryType == CardExpenseType.PAYMENT
                     )
                 }
             )
         }
+}
+
+private fun buildAmountLabel(expense: CardExpense): String {
+    val amount = currencyFormatter.format(expense.amount)
+    return if (expense.entryType == CardExpenseType.PAYMENT) "+$amount" else amount
+}
+
+private fun buildWeekDayChips(
+    movements: List<CardExpense>,
+    selectedKey: String?
+): List<MovementDayChipUiModel> {
+    val today = LocalDate.now()
+    val startOfWeek = today.with(DayOfWeek.MONDAY)
+    val availableDays = if (movements.isEmpty()) {
+        (0..6).map { startOfWeek.plusDays(it.toLong()) }
+    } else {
+        (0..6).map { startOfWeek.plusDays(it.toLong()) }
+            .filter { day -> movements.any { it.createdAt.toLocalDate() == day } }
+            .ifEmpty { listOf(today) }
+    }
+    val effectiveKey = selectedKey ?: availableDays.first().toString()
+
+    return availableDays.map { day ->
+        MovementDayChipUiModel(
+            key = day.toString(),
+            label = day.format(weekDayFormatter).replaceFirstChar {
+                if (it.isLowerCase()) it.titlecase(Locale("es", "MX")) else it.toString()
+            },
+            dayNumber = day.dayOfMonth.toString(),
+            isSelected = day.toString() == effectiveKey
+        )
+    }
+}
+
+private fun CardExpense.displayConcept(): String {
+    return when {
+        entryType == CardExpenseType.PAYMENT -> "Pago: $concept"
+        isMsi -> "$concept (MSI)"
+        else -> concept
+    }
 }
 
 internal fun AddCardFormUiState.toPreviewCardUiModel(): WalletCardUiModel {
@@ -137,12 +206,15 @@ internal fun AddCardFormUiState.toPreviewCardUiModel(): WalletCardUiModel {
         bankName = bankName,
         brand = brand.label,
         lastDigits = "0000",
+        creditLimitAmount = credit,
+        usedLimitAmount = (credit - available).coerceAtLeast(0.0),
         limitUsageText = "${currencyFormatter.format((credit - available).coerceAtLeast(0.0))} de ${currencyFormatter.format(credit)}",
         availableLimitText = currencyFormatter.format(available),
         availableLimitAmount = available,
         monthlyPaymentText = currencyFormatter.format(0),
         monthlyPaymentAmount = 0.0,
-        installmentsText = "0 MSI pendientes",
+        installmentsText = currencyFormatter.format(0),
+        pendingInstallmentsAmount = 0.0,
         paidMsiText = "0 MSI pagados",
         paymentDayText = paymentDay.toIntOrNull()?.let { "Pago el dia $it" } ?: "Agrega dia de pago",
         closingDayText = if (hasClosingDay) {
@@ -184,6 +256,7 @@ internal fun AddCardFormUiState.toCardAccount(existingCardId: String? = null): C
         closingDay = if (hasClosingDay) closingDay.toInt() else null,
         monthlyInstallmentPayment = 0.0,
         pendingInstallments = 0,
+        pendingMsiBalance = 0.0,
         paidMsi = 0
     )
 }

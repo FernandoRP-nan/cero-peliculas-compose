@@ -12,6 +12,7 @@ data class CardAccount(
     val closingDay: Int? = null,
     val monthlyInstallmentPayment: Double,
     val pendingInstallments: Int,
+    val pendingMsiBalance: Double = 0.0,
     val paidMsi: Int
 ) {
     val usedLimit: Double
