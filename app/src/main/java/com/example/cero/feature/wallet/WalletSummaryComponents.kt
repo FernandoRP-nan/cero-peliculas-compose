@@ -82,8 +82,13 @@ internal fun WalletCardItem(card: WalletCardUiModel) {
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
+                    val subtitle = listOfNotNull(
+                        card.bankName.takeIf { it.isNotBlank() },
+                        card.brand.takeIf { it.isNotBlank() },
+                        card.lastDigits.takeIf { it.isNotBlank() }?.let { "**** $it" }
+                    ).joinToString(" · ")
                     Text(
-                        text = "${card.brand} **** ${card.lastDigits}",
+                        text = subtitle.ifBlank { "Tarjeta guardada localmente" },
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f)
                     )
                 }
@@ -95,7 +100,12 @@ internal fun WalletCardItem(card: WalletCardUiModel) {
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                SummaryChip(title = "Disponible", value = card.availableLimitText)
                 SummaryChip(title = "Usado", value = card.limitUsageText)
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                SummaryChip(title = "Dia de pago", value = card.paymentDayText)
                 SummaryChip(title = "MSI al mes", value = card.monthlyPaymentText)
             }
         }

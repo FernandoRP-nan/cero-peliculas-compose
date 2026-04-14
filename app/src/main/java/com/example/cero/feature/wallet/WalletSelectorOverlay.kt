@@ -213,7 +213,7 @@ private fun SelectorDialogCard(
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = card.brand.uppercase(),
+                        text = card.brand.ifBlank { "Local" }.uppercase(),
                         color = Color.White.copy(alpha = 0.78f),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold
@@ -227,7 +227,7 @@ private fun SelectorDialogCard(
                 }
 
                 Text(
-                    text = "****  ****  ****  ${card.lastDigits}",
+                    text = "****  ****  ****  ${card.lastDigits.ifBlank { "0000" }}",
                     color = Color.White,
                     fontSize = if (performanceMode == UiPerformanceMode.LOW) 18.sp else 20.sp,
                     fontWeight = FontWeight.SemiBold

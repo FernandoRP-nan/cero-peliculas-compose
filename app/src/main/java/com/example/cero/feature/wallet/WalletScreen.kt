@@ -23,6 +23,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -44,7 +45,18 @@ fun WalletRoute(
         onWalletPressed = viewModel::onWalletPressed,
         onPreviewCardPressed = viewModel::onPreviewCardPressed,
         onDismissCardSelector = viewModel::onDismissCardSelector,
-        onCardSelected = viewModel::onCardSelected
+        onCardSelected = viewModel::onCardSelected,
+        onAddCardPressed = viewModel::onAddCardPressed,
+        onDismissAddCard = viewModel::onDismissAddCard,
+        onShortNameChanged = viewModel::onShortNameChanged,
+        onBankNameChanged = viewModel::onBankNameChanged,
+        onBrandChanged = viewModel::onBrandChanged,
+        onCreditLimitChanged = viewModel::onCreditLimitChanged,
+        onAvailableLimitChanged = viewModel::onAvailableLimitChanged,
+        onPaymentDayChanged = viewModel::onPaymentDayChanged,
+        onHasClosingDayChanged = viewModel::onHasClosingDayChanged,
+        onClosingDayChanged = viewModel::onClosingDayChanged,
+        onSaveCard = viewModel::onSaveCard
     )
 }
 
@@ -56,6 +68,17 @@ fun WalletScreen(
     onPreviewCardPressed: (String) -> Unit,
     onDismissCardSelector: () -> Unit,
     onCardSelected: (String) -> Unit,
+    onAddCardPressed: () -> Unit,
+    onDismissAddCard: () -> Unit,
+    onShortNameChanged: (String) -> Unit,
+    onBankNameChanged: (String) -> Unit,
+    onBrandChanged: (CardBrandOption) -> Unit,
+    onCreditLimitChanged: (String) -> Unit,
+    onAvailableLimitChanged: (String) -> Unit,
+    onPaymentDayChanged: (String) -> Unit,
+    onHasClosingDayChanged: (Boolean) -> Unit,
+    onClosingDayChanged: (String) -> Unit,
+    onSaveCard: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
@@ -126,6 +149,32 @@ fun WalletScreen(
                 onDismiss = onDismissCardSelector,
                 onCardSelected = onCardSelected
             )
+
+            AddCardOverlay(
+                uiState = uiState,
+                performanceMode = performanceMode,
+                reduceEffects = shouldReduceEffects,
+                onDismiss = onDismissAddCard,
+                onShortNameChanged = onShortNameChanged,
+                onBankNameChanged = onBankNameChanged,
+                onBrandChanged = onBrandChanged,
+                onCreditLimitChanged = onCreditLimitChanged,
+                onAvailableLimitChanged = onAvailableLimitChanged,
+                onPaymentDayChanged = onPaymentDayChanged,
+                onHasClosingDayChanged = onHasClosingDayChanged,
+                onClosingDayChanged = onClosingDayChanged,
+                onSaveCard = onSaveCard
+            )
+
+            AddCardFab(
+                performanceMode = performanceMode,
+                reduceEffects = shouldReduceEffects,
+                expanded = uiState.isAddCardVisible,
+                onClick = onAddCardPressed,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 20.dp, bottom = 24.dp)
+            )
         }
     }
 }
@@ -167,25 +216,33 @@ private fun WalletScreenPreviewClosed() {
                     WalletCardUiModel(
                         id = "1",
                         name = "BBVA Oro",
+                        bankName = "BBVA",
                         brand = "Visa",
                         lastDigits = "4821",
                         limitUsageText = "$12,400.00 de $25,000.00",
+                        availableLimitText = "$12,600.00",
                         monthlyPaymentText = "$1,180.00",
                         PaidMsiText = "2 MSI pagados",
                         installmentsText = "8 MSI pendientes",
+                        paymentDayText = "Pago el dia 12",
+                        closingDayText = "Corte el dia 7",
                         accentStart = 0xFF355C7D,
                         accentEnd = 0xFF6C5B7B
                     ),
                     WalletCardUiModel(
                         id = "2",
                         name = "Nu",
+                        bankName = "Nu",
                         brand = "Mastercard",
                         lastDigits = "1904",
                         limitUsageText = "$6,250.00 de $18,000.00",
+                        availableLimitText = "$11,750.00",
                         monthlyPaymentText = "$750.00",
                         PaidMsiText = "2 MSI pagados",
 
                         installmentsText = "5 MSI pendientes",
+                        paymentDayText = "Pago el dia 18",
+                        closingDayText = "Corte el dia 13",
                         accentStart = 0xFF0F766E,
                         accentEnd = 0xFF115E59
                     )
@@ -195,7 +252,18 @@ private fun WalletScreenPreviewClosed() {
             onWalletPressed = {},
             onPreviewCardPressed = {},
             onDismissCardSelector = {},
-            onCardSelected = {}
+            onCardSelected = {},
+            onAddCardPressed = {},
+            onDismissAddCard = {},
+            onShortNameChanged = {},
+            onBankNameChanged = {},
+            onBrandChanged = {},
+            onCreditLimitChanged = {},
+            onAvailableLimitChanged = {},
+            onPaymentDayChanged = {},
+            onHasClosingDayChanged = {},
+            onClosingDayChanged = {},
+            onSaveCard = {}
         )
     }
 }

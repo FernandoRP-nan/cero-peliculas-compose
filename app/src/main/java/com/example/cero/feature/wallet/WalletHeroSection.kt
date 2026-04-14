@@ -193,11 +193,14 @@ private fun FloatingCardsCluster(
                     Text(text = card.name, color = Color.White, fontWeight = FontWeight.SemiBold)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "**** ${card.lastDigits}",
+                            text = "**** ${card.lastDigits.ifBlank { "0000" }}",
                             color = Color.White.copy(alpha = 0.92f),
                             modifier = Modifier.weight(1f)
                         )
-                        Text(text = card.brand, color = Color.White.copy(alpha = 0.92f))
+                        Text(
+                            text = card.brand.ifBlank { "Local" },
+                            color = Color.White.copy(alpha = 0.92f)
+                        )
                     }
                 }
             }
