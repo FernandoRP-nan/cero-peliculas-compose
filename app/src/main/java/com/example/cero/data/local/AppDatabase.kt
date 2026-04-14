@@ -4,10 +4,12 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [UserEntity::class],
-    version = 1
+    entities = [UserEntity::class, CardEntity::class, CardExpenseEntity::class],
+    version = 3
 )
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun userDao(): UserDao
+
+    abstract fun walletDao(): WalletDao
 }

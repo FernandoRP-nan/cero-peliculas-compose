@@ -1,6 +1,8 @@
 package com.example.cero.feature.wallet
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -46,6 +48,11 @@ fun WalletRoute(
         onPreviewCardPressed = viewModel::onPreviewCardPressed,
         onDismissCardSelector = viewModel::onDismissCardSelector,
         onCardSelected = viewModel::onCardSelected,
+        onEditCardPressed = viewModel::onEditCardPressed,
+        onAddExpensePressed = { cardId -> viewModel.onAddExpensePressed(cardId, performanceMode) },
+        onHiddenCardsPressed = viewModel::onHiddenCardsPressed,
+        onHiddenCardsScrollHandled = viewModel::onHiddenCardsScrollHandled,
+        onBackFromExpenses = viewModel::onBackFromExpenses,
         onAddCardPressed = viewModel::onAddCardPressed,
         onDismissAddCard = viewModel::onDismissAddCard,
         onShortNameChanged = viewModel::onShortNameChanged,
@@ -56,7 +63,14 @@ fun WalletRoute(
         onPaymentDayChanged = viewModel::onPaymentDayChanged,
         onHasClosingDayChanged = viewModel::onHasClosingDayChanged,
         onClosingDayChanged = viewModel::onClosingDayChanged,
-        onSaveCard = viewModel::onSaveCard
+        onSaveCard = viewModel::onSaveCard,
+        onAddExpenseFabPressed = viewModel::onAddExpenseFabPressed,
+        onDismissAddExpense = viewModel::onDismissAddExpense,
+        onExpenseConceptChanged = viewModel::onExpenseConceptChanged,
+        onExpenseAmountChanged = viewModel::onExpenseAmountChanged,
+        onExpenseIsMsiChanged = viewModel::onExpenseIsMsiChanged,
+        onExpenseInstallmentCountChanged = viewModel::onExpenseInstallmentCountChanged,
+        onSaveExpense = viewModel::onSaveExpense
     )
 }
 
@@ -68,6 +82,11 @@ fun WalletScreen(
     onPreviewCardPressed: (String) -> Unit,
     onDismissCardSelector: () -> Unit,
     onCardSelected: (String) -> Unit,
+    onEditCardPressed: (String) -> Unit,
+    onAddExpensePressed: (String) -> Unit,
+    onHiddenCardsPressed: () -> Unit,
+    onHiddenCardsScrollHandled: () -> Unit,
+    onBackFromExpenses: () -> Unit,
     onAddCardPressed: () -> Unit,
     onDismissAddCard: () -> Unit,
     onShortNameChanged: (String) -> Unit,
@@ -79,6 +98,13 @@ fun WalletScreen(
     onHasClosingDayChanged: (Boolean) -> Unit,
     onClosingDayChanged: (String) -> Unit,
     onSaveCard: () -> Unit,
+    onAddExpenseFabPressed: () -> Unit,
+    onDismissAddExpense: () -> Unit,
+    onExpenseConceptChanged: (String) -> Unit,
+    onExpenseAmountChanged: (String) -> Unit,
+    onExpenseIsMsiChanged: (Boolean) -> Unit,
+    onExpenseInstallmentCountChanged: (String) -> Unit,
+    onSaveExpense: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
@@ -88,93 +114,140 @@ fun WalletScreen(
         }
     }
 
+    BackHandler(
+        enabled = uiState.currentScreen != WalletScreenDestination.Wallet ||
+            uiState.isAddExpenseVisible ||
+            uiState.isAddCardVisible ||
+            uiState.isCardSelectorVisible ||
+            uiState.isWalletOpen
+    ) {
+        when {
+            uiState.isAddExpenseVisible -> onDismissAddExpense()
+            uiState.currentScreen == WalletScreenDestination.AddExpense -> onBackFromExpenses()
+            uiState.isAddCardVisible -> onDismissAddCard()
+            uiState.isCardSelectorVisible -> onDismissCardSelector()
+            uiState.isWalletOpen -> onWalletPressed()
+        }
+    }
+
     Surface(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                state = listState,
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
-            ) {
-                item {
-                    WalletHeader(uiState = uiState)
+        Crossfade(
+            targetState = uiState.currentScreen,
+            animationSpec = tween(
+                durationMillis = when (performanceMode) {
+                    UiPerformanceMode.LOW -> 140
+                    UiPerformanceMode.BALANCED -> 220
+                    UiPerformanceMode.HIGH -> 320
                 }
+            ),
+            label = "wallet-screen-crossfade"
+        ) { screen ->
+            when (screen) {
+                WalletScreenDestination.Wallet -> {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            state = listState,
+                            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 24.dp),
+                            verticalArrangement = Arrangement.spacedBy(20.dp)
+                        ) {
+                            item { WalletHeader(uiState = uiState) }
 
-                item {
-                    WalletHero(
-                        uiState = uiState,
-                        performanceMode = performanceMode,
-                        reduceEffects = shouldReduceEffects,
-                        onWalletPressed = onWalletPressed,
-                        onPreviewCardPressed = onPreviewCardPressed
-                    )
-                }
+                            item {
+                                WalletHero(
+                                    uiState = uiState,
+                                    performanceMode = performanceMode,
+                                    reduceEffects = shouldReduceEffects,
+                                    onWalletPressed = onWalletPressed,
+                                    onPreviewCardPressed = onPreviewCardPressed,
+                                    onHiddenCardsPressed = onHiddenCardsPressed
+                                )
+                            }
 
-                item {
-                    SpendingSummary(uiState = uiState)
-                }
+                            item { SpendingSummary(uiState = uiState) }
 
-                item {
-                    Text(
-                        text = if (uiState.isWalletOpen) "Todas tus tarjetas" else "Tus tarjetas",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                }
+                            item {
+                                Text(
+                                    text = if (uiState.isWalletOpen) "Todas tus tarjetas" else "Tus tarjetas",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                            }
 
-                items(uiState.cards, key = { it.id }) { card ->
-                    AnimatedVisibility(
-                        visible = uiState.isWalletOpen,
-                        enter = if (shouldReduceEffects) {
-                            fadeIn(animationSpec = tween(140))
-                        } else {
-                            fadeIn(animationSpec = tween(500)) +
-                                slideInVertically(animationSpec = tween(500)) { it / 3 } +
-                                expandVertically(animationSpec = tween(500))
-                        },
-                        exit = fadeOut(animationSpec = tween(if (shouldReduceEffects) 120 else 250))
-                    ) {
-                        WalletCardItem(card = card)
+                            items(uiState.cards, key = { it.id }) { card ->
+                                AnimatedVisibility(
+                                    visible = uiState.isWalletOpen,
+                                    enter = if (shouldReduceEffects) {
+                                        fadeIn(animationSpec = tween(140))
+                                    } else {
+                                        fadeIn(animationSpec = tween(500)) +
+                                            slideInVertically(animationSpec = tween(500)) { it / 3 } +
+                                            expandVertically(animationSpec = tween(500))
+                                    },
+                                    exit = fadeOut(animationSpec = tween(if (shouldReduceEffects) 120 else 250))
+                                ) {
+                                    WalletCardItem(card = card)
+                                }
+                            }
+                        }
+
+                        CardSelectorOverlay(
+                            uiState = uiState,
+                            performanceMode = performanceMode,
+                            reduceEffects = shouldReduceEffects,
+                            onDismiss = onDismissCardSelector,
+                            onCardSelected = onCardSelected,
+                            onAddExpensePressed = onAddExpensePressed,
+                            onEditCardPressed = onEditCardPressed,
+                            onHiddenCardsScrollHandled = onHiddenCardsScrollHandled
+                        )
+
+                        AddCardOverlay(
+                            uiState = uiState,
+                            performanceMode = performanceMode,
+                            reduceEffects = shouldReduceEffects,
+                            onDismiss = onDismissAddCard,
+                            onShortNameChanged = onShortNameChanged,
+                            onBankNameChanged = onBankNameChanged,
+                            onBrandChanged = onBrandChanged,
+                            onCreditLimitChanged = onCreditLimitChanged,
+                            onAvailableLimitChanged = onAvailableLimitChanged,
+                            onPaymentDayChanged = onPaymentDayChanged,
+                            onHasClosingDayChanged = onHasClosingDayChanged,
+                            onClosingDayChanged = onClosingDayChanged,
+                            onSaveCard = onSaveCard
+                        )
+
+                        AddCardFab(
+                            performanceMode = performanceMode,
+                            reduceEffects = shouldReduceEffects,
+                            expanded = uiState.isAddCardVisible,
+                            onClick = onAddCardPressed,
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(end = 20.dp, bottom = 24.dp)
+                        )
                     }
                 }
+
+                WalletScreenDestination.AddExpense -> {
+                    AddExpenseScreen(
+                        uiState = uiState,
+                        performanceMode = performanceMode,
+                        onBackPressed = onBackFromExpenses,
+                        onAddExpensePressed = onAddExpenseFabPressed,
+                        onDismissAddExpense = onDismissAddExpense,
+                        onExpenseConceptChanged = onExpenseConceptChanged,
+                        onExpenseAmountChanged = onExpenseAmountChanged,
+                        onExpenseIsMsiChanged = onExpenseIsMsiChanged,
+                        onExpenseInstallmentCountChanged = onExpenseInstallmentCountChanged,
+                        onSaveExpense = onSaveExpense
+                    )
+                }
             }
-
-            CardSelectorOverlay(
-                uiState = uiState,
-                performanceMode = performanceMode,
-                reduceEffects = shouldReduceEffects,
-                onDismiss = onDismissCardSelector,
-                onCardSelected = onCardSelected
-            )
-
-            AddCardOverlay(
-                uiState = uiState,
-                performanceMode = performanceMode,
-                reduceEffects = shouldReduceEffects,
-                onDismiss = onDismissAddCard,
-                onShortNameChanged = onShortNameChanged,
-                onBankNameChanged = onBankNameChanged,
-                onBrandChanged = onBrandChanged,
-                onCreditLimitChanged = onCreditLimitChanged,
-                onAvailableLimitChanged = onAvailableLimitChanged,
-                onPaymentDayChanged = onPaymentDayChanged,
-                onHasClosingDayChanged = onHasClosingDayChanged,
-                onClosingDayChanged = onClosingDayChanged,
-                onSaveCard = onSaveCard
-            )
-
-            AddCardFab(
-                performanceMode = performanceMode,
-                reduceEffects = shouldReduceEffects,
-                expanded = uiState.isAddCardVisible,
-                onClick = onAddCardPressed,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 20.dp, bottom = 24.dp)
-            )
         }
     }
 }
@@ -221,8 +294,10 @@ private fun WalletScreenPreviewClosed() {
                         lastDigits = "4821",
                         limitUsageText = "$12,400.00 de $25,000.00",
                         availableLimitText = "$12,600.00",
+                        availableLimitAmount = 12600.0,
                         monthlyPaymentText = "$1,180.00",
-                        PaidMsiText = "2 MSI pagados",
+                        monthlyPaymentAmount = 1180.0,
+                        paidMsiText = "2 MSI pagados",
                         installmentsText = "8 MSI pendientes",
                         paymentDayText = "Pago el dia 12",
                         closingDayText = "Corte el dia 7",
@@ -237,8 +312,10 @@ private fun WalletScreenPreviewClosed() {
                         lastDigits = "1904",
                         limitUsageText = "$6,250.00 de $18,000.00",
                         availableLimitText = "$11,750.00",
+                        availableLimitAmount = 11750.0,
                         monthlyPaymentText = "$750.00",
-                        PaidMsiText = "2 MSI pagados",
+                        monthlyPaymentAmount = 750.0,
+                        paidMsiText = "2 MSI pagados",
 
                         installmentsText = "5 MSI pendientes",
                         paymentDayText = "Pago el dia 18",
@@ -253,6 +330,11 @@ private fun WalletScreenPreviewClosed() {
             onPreviewCardPressed = {},
             onDismissCardSelector = {},
             onCardSelected = {},
+            onEditCardPressed = {},
+            onAddExpensePressed = {},
+            onHiddenCardsPressed = {},
+            onHiddenCardsScrollHandled = {},
+            onBackFromExpenses = {},
             onAddCardPressed = {},
             onDismissAddCard = {},
             onShortNameChanged = {},
@@ -263,7 +345,14 @@ private fun WalletScreenPreviewClosed() {
             onPaymentDayChanged = {},
             onHasClosingDayChanged = {},
             onClosingDayChanged = {},
-            onSaveCard = {}
+            onSaveCard = {},
+            onAddExpenseFabPressed = {},
+            onDismissAddExpense = {},
+            onExpenseConceptChanged = {},
+            onExpenseAmountChanged = {},
+            onExpenseIsMsiChanged = {},
+            onExpenseInstallmentCountChanged = {},
+            onSaveExpense = {}
         )
     }
 }

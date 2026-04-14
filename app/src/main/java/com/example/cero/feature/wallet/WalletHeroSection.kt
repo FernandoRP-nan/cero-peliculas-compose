@@ -43,7 +43,8 @@ internal fun WalletHero(
     performanceMode: UiPerformanceMode,
     reduceEffects: Boolean,
     onWalletPressed: () -> Unit,
-    onPreviewCardPressed: (String) -> Unit
+    onPreviewCardPressed: (String) -> Unit,
+    onHiddenCardsPressed: () -> Unit
 ) {
     val animationDuration = when (performanceMode) {
         UiPerformanceMode.LOW -> 420
@@ -77,7 +78,9 @@ internal fun WalletHero(
             reduceEffects = reduceEffects,
             isWalletOpen = uiState.isWalletOpen,
             selectedCardId = uiState.selectedCardId,
+            transitioningCardId = uiState.transitioningToExpenseCardId,
             onCardPressed = onPreviewCardPressed,
+            onHiddenCardsPressed = onHiddenCardsPressed,
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = 4.dp)
@@ -124,7 +127,9 @@ private fun FloatingCardsCluster(
     reduceEffects: Boolean,
     isWalletOpen: Boolean,
     selectedCardId: String?,
+    transitioningCardId: String?,
     onCardPressed: (String) -> Unit,
+    onHiddenCardsPressed: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val maxPreviewCards = when (performanceMode) {
@@ -169,6 +174,19 @@ private fun FloatingCardsCluster(
                 animationSpec = tween(durationMillis = (baseDuration - 40) + (index * 50)),
                 label = "floating-card-alpha-$index"
             )
+            val emphasizedScale by animateFloatAsState(
+                targetValue = if (transitioningCardId == card.id) {
+                    when (performanceMode) {
+                        UiPerformanceMode.LOW -> 1.02f
+                        UiPerformanceMode.BALANCED -> 1.08f
+                        UiPerformanceMode.HIGH -> 1.12f
+                    }
+                } else {
+                    1f
+                },
+                animationSpec = tween(durationMillis = baseDuration),
+                label = "floating-card-scale-$index"
+            )
 
             Card(
                 modifier = Modifier
@@ -177,6 +195,8 @@ private fun FloatingCardsCluster(
                     .graphicsLayer {
                         rotationZ = animatedRotation
                         alpha = animatedAlpha
+                        scaleX = emphasizedScale
+                        scaleY = emphasizedScale
                     }
                     .clickable(enabled = isWalletOpen) { onCardPressed(card.id) },
                 shape = RoundedCornerShape(24.dp),
@@ -219,20 +239,28 @@ private fun FloatingCardsCluster(
             }
         }
 
-        if (hiddenCards > 0 && !reduceEffects) {
+        if (hiddenCards > 0) {
             val chipOffsetX by animateDpAsState(
-                targetValue = if (isWalletOpen) 118.dp else 0.dp,
-                animationSpec = tween(durationMillis = baseDuration + 200, easing = FastOutSlowInEasing),
+                targetValue = if (isWalletOpen) {
+                    if (reduceEffects) 102.dp else 118.dp
+                } else {
+                    0.dp
+                },
+                animationSpec = tween(durationMillis = if (reduceEffects) 180 else baseDuration + 200, easing = FastOutSlowInEasing),
                 label = "hidden-card-chip-x"
             )
             val chipOffsetY by animateDpAsState(
-                targetValue = if (isWalletOpen) (-6).dp else 70.dp,
-                animationSpec = tween(durationMillis = baseDuration + 200, easing = FastOutSlowInEasing),
+                targetValue = if (isWalletOpen) {
+                    if (reduceEffects) 8.dp else (-6).dp
+                } else {
+                    70.dp
+                },
+                animationSpec = tween(durationMillis = if (reduceEffects) 180 else baseDuration + 200, easing = FastOutSlowInEasing),
                 label = "hidden-card-chip-y"
             )
             val chipAlpha by animateFloatAsState(
                 targetValue = if (isWalletOpen) 1f else 0f,
-                animationSpec = tween(durationMillis = baseDuration + 120),
+                animationSpec = tween(durationMillis = if (reduceEffects) 140 else baseDuration + 120),
                 label = "hidden-card-chip-alpha"
             )
 
@@ -243,6 +271,7 @@ private fun FloatingCardsCluster(
                     .graphicsLayer { alpha = chipAlpha }
                     .clip(RoundedCornerShape(18.dp))
                     .background(Color(0xFFF8E7D2))
+                    .clickable(enabled = isWalletOpen, onClick = onHiddenCardsPressed)
                     .padding(horizontal = 14.dp, vertical = 10.dp)
             ) {
                 Text(text = "+$hiddenCards mas", color = Color(0xFF7C4526), fontWeight = FontWeight.Bold)

@@ -137,13 +137,17 @@ internal fun AddCardOverlay(
                     item {
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(
-                                text = "Agrega una tarjeta",
+                                text = if (uiState.addCardMode == AddCardMode.EDIT) "Edita tu tarjeta" else "Agrega una tarjeta",
                                 style = MaterialTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF2D1D14)
                             )
                             Text(
-                                text = "Captura solo lo necesario para arrancar con calculos reales.",
+                                text = if (uiState.addCardMode == AddCardMode.EDIT) {
+                                    "Ajusta solo lo necesario y manten tu registro local al dia."
+                                } else {
+                                    "Captura solo lo necesario para arrancar con calculos reales."
+                                },
                                 color = Color(0xFF6A5548)
                             )
                         }
@@ -327,7 +331,7 @@ internal fun AddCardOverlay(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = "Guardar tarjeta",
+                                    text = if (uiState.addCardMode == AddCardMode.EDIT) "Guardar cambios" else "Guardar tarjeta",
                                     color = Color(0xFFFFF7ED),
                                     fontWeight = FontWeight.Bold
                                 )

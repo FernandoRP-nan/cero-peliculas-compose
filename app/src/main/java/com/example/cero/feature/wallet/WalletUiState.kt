@@ -8,13 +8,32 @@ data class WalletUiState(
     val availableToSpend: String = "$0",
     val spendingMessage: String = "",
     val canSpendMore: Boolean = false,
+    val currentScreen: WalletScreenDestination = WalletScreenDestination.Wallet,
     val isWalletOpen: Boolean = false,
     val isCardSelectorVisible: Boolean = false,
     val isAddCardVisible: Boolean = false,
+    val isAddExpenseVisible: Boolean = false,
     val selectedCardId: String? = null,
+    val actionMenuCardId: String? = null,
+    val transitioningToExpenseCardId: String? = null,
+    val pendingSelectorScrollToHidden: Boolean = false,
+    val addCardMode: AddCardMode = AddCardMode.CREATE,
     val addCardForm: AddCardFormUiState = AddCardFormUiState(),
-    val cards: List<WalletCardUiModel> = emptyList()
+    val addExpenseForm: AddExpenseFormUiState = AddExpenseFormUiState(),
+    val cards: List<WalletCardUiModel> = emptyList(),
+    val expenseCard: WalletCardUiModel? = null,
+    val expenseGroups: List<ExpenseDayGroupUiModel> = emptyList()
 )
+
+enum class WalletScreenDestination {
+    Wallet,
+    AddExpense
+}
+
+enum class AddCardMode {
+    CREATE,
+    EDIT
+}
 
 data class WalletCardUiModel(
     val id: String,
@@ -24,9 +43,11 @@ data class WalletCardUiModel(
     val lastDigits: String,
     val limitUsageText: String,
     val availableLimitText: String,
+    val availableLimitAmount: Double,
     val monthlyPaymentText: String,
+    val monthlyPaymentAmount: Double,
     val installmentsText: String,
-    val PaidMsiText: String,
+    val paidMsiText: String,
     val paymentDayText: String,
     val closingDayText: String?,
     val accentStart: Long,
@@ -45,6 +66,30 @@ data class AddCardFormUiState(
     val hasAttemptedSubmit: Boolean = false,
     val canSubmit: Boolean = false,
     val errorMessage: String? = null
+)
+
+data class AddExpenseFormUiState(
+    val concept: String = "",
+    val amount: String = "",
+    val isMsi: Boolean = false,
+    val installmentCount: String = "",
+    val hasAttemptedSubmit: Boolean = false,
+    val canSubmit: Boolean = false,
+    val errorMessage: String? = null
+)
+
+data class ExpenseDayGroupUiModel(
+    val dateLabel: String,
+    val totalAmountText: String,
+    val expenses: List<ExpenseItemUiModel>
+)
+
+data class ExpenseItemUiModel(
+    val id: String,
+    val concept: String,
+    val amountText: String,
+    val timeLabel: String,
+    val supportingText: String? = null
 )
 
 enum class CardBrandOption {

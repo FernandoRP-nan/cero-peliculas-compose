@@ -3,9 +3,13 @@ package com.example.cero.feature.wallet
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.cero.domain.model.CardAccount
+import com.example.cero.domain.model.CardExpense
+import com.example.cero.domain.model.UiPerformanceMode
 import com.example.cero.domain.model.WalletSnapshot
+import com.example.cero.domain.repository.WalletRepository
 import com.example.cero.domain.usecase.ObserveWalletSnapshotUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.LocalDateTime
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -13,26 +17,34 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 @HiltViewModel
 class WalletViewModel @Inject constructor(
-    observeWalletSnapshotUseCase: ObserveWalletSnapshotUseCase
+    observeWalletSnapshotUseCase: ObserveWalletSnapshotUseCase,
+    private val walletRepository: WalletRepository
 ) : ViewModel() {
 
+    private val currentScreen = MutableStateFlow(WalletScreenDestination.Wallet)
     private val isWalletOpen = MutableStateFlow(false)
     private val isCardSelectorVisible = MutableStateFlow(false)
     private val isAddCardVisible = MutableStateFlow(false)
+    private val isAddExpenseVisible = MutableStateFlow(false)
     private val selectedCardId = MutableStateFlow<String?>(null)
+    private val actionMenuCardId = MutableStateFlow<String?>(null)
+    private val transitioningToExpenseCardId = MutableStateFlow<String?>(null)
+    private val addCardMode = MutableStateFlow(AddCardMode.CREATE)
     private val addCardForm = MutableStateFlow(AddCardFormUiState())
-    private val extraCards = MutableStateFlow<List<CardAccount>>(emptyList())
+    private val addExpenseForm = MutableStateFlow(AddExpenseFormUiState())
+    private val pendingSelectorScrollToHidden = MutableStateFlow(false)
 
     val uiState: StateFlow<WalletUiState> =
         observeWalletSnapshotUseCase()
+            .combine(currentScreen) { snapshot, screen ->
+                WalletPresentationState(snapshot = snapshot, currentScreen = screen)
+            }
             .combine(isWalletOpen) { snapshot, open ->
-                WalletPresentationState(
-                    snapshot = snapshot,
-                    isWalletOpen = open
-                )
+                snapshot.copy(isWalletOpen = open)
             }
             .combine(isCardSelectorVisible) { state, selectorVisible ->
                 state.copy(isCardSelectorVisible = selectorVisible)
@@ -40,20 +52,47 @@ class WalletViewModel @Inject constructor(
             .combine(isAddCardVisible) { state, addVisible ->
                 state.copy(isAddCardVisible = addVisible)
             }
+            .combine(isAddExpenseVisible) { state, addExpenseVisible ->
+                state.copy(isAddExpenseVisible = addExpenseVisible)
+            }
             .combine(selectedCardId) { state, selectedId ->
                 state.copy(selectedCardId = selectedId)
+            }
+            .combine(actionMenuCardId) { state, menuCardId ->
+                state.copy(actionMenuCardId = menuCardId)
+            }
+            .combine(transitioningToExpenseCardId) { state, transitionCardId ->
+                state.copy(transitioningToExpenseCardId = transitionCardId)
+            }
+            .combine(addCardMode) { state, mode ->
+                state.copy(addCardMode = mode)
             }
             .combine(addCardForm) { state, form ->
                 state.copy(addCardForm = form)
             }
-            .combine(extraCards) { state, localCards ->
+            .combine(addExpenseForm) { state, form ->
+                state.copy(addExpenseForm = form)
+            }
+            .combine(walletRepository.observeCardExpenses()) { state, expenses ->
+                state.copy(expenses = expenses)
+            }
+            .combine(pendingSelectorScrollToHidden) { state, pendingScroll ->
                 state.snapshot.toUiState(
+                    currentScreen = state.currentScreen,
                     isWalletOpen = state.isWalletOpen,
                     isCardSelectorVisible = state.isCardSelectorVisible,
                     isAddCardVisible = state.isAddCardVisible,
+                    isAddExpenseVisible = state.isAddExpenseVisible,
                     selectedCardId = state.selectedCardId,
+                    actionMenuCardId = state.actionMenuCardId,
+                    transitioningToExpenseCardId = state.transitioningToExpenseCardId,
+                    addCardMode = state.addCardMode,
                     addCardForm = state.addCardForm,
-                    extraCards = localCards
+                    addExpenseForm = state.addExpenseForm,
+                    extraCards = emptyList(),
+                    editedCards = emptyMap(),
+                    expensesByCard = state.expenses.groupBy { it.cardId },
+                    pendingSelectorScrollToHidden = pendingScroll
                 )
             }
             .stateIn(
@@ -67,6 +106,7 @@ class WalletViewModel @Inject constructor(
             val next = !current
             if (!next) {
                 isCardSelectorVisible.value = false
+                actionMenuCardId.value = null
             }
             next
         }
@@ -76,25 +116,147 @@ class WalletViewModel @Inject constructor(
         if (!isWalletOpen.value) return
         selectedCardId.value = cardId
         isCardSelectorVisible.value = true
+        actionMenuCardId.value = null
+        pendingSelectorScrollToHidden.value = false
     }
 
     fun onDismissCardSelector() {
         isCardSelectorVisible.value = false
+        actionMenuCardId.value = null
+        pendingSelectorScrollToHidden.value = false
     }
 
     fun onCardSelected(cardId: String) {
         selectedCardId.value = cardId
-        isCardSelectorVisible.value = false
+        actionMenuCardId.update { current -> if (current == cardId) null else cardId }
     }
 
     fun onAddCardPressed() {
         isCardSelectorVisible.value = false
+        actionMenuCardId.value = null
+        pendingSelectorScrollToHidden.value = false
+        addCardMode.value = AddCardMode.CREATE
+        addCardForm.value = AddCardFormUiState()
         isAddCardVisible.value = true
     }
 
     fun onDismissAddCard() {
         isAddCardVisible.value = false
+        addCardMode.value = AddCardMode.CREATE
         addCardForm.value = AddCardFormUiState()
+    }
+
+    fun onEditCardPressed(cardId: String) {
+        val card = resolveCard(cardId) ?: return
+        selectedCardId.value = cardId
+        isCardSelectorVisible.value = false
+        actionMenuCardId.value = null
+        pendingSelectorScrollToHidden.value = false
+        addCardMode.value = AddCardMode.EDIT
+        addCardForm.value = card.toAddCardForm()
+        isAddCardVisible.value = true
+    }
+
+    fun onAddExpensePressed(cardId: String, performanceMode: UiPerformanceMode) {
+        val card = resolveCard(cardId) ?: return
+        selectedCardId.value = card.id
+        actionMenuCardId.value = null
+        pendingSelectorScrollToHidden.value = false
+        transitioningToExpenseCardId.value = card.id
+        isCardSelectorVisible.value = false
+
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(
+                when (performanceMode) {
+                    UiPerformanceMode.LOW -> 140L
+                    UiPerformanceMode.BALANCED -> 240L
+                    UiPerformanceMode.HIGH -> 360L
+                }
+            )
+            currentScreen.value = WalletScreenDestination.AddExpense
+            transitioningToExpenseCardId.value = null
+        }
+    }
+
+    fun onBackFromExpenses() {
+        currentScreen.value = WalletScreenDestination.Wallet
+        isAddExpenseVisible.value = false
+        addExpenseForm.value = AddExpenseFormUiState()
+    }
+
+    fun onAddExpenseFabPressed() {
+        isAddExpenseVisible.value = true
+        addExpenseForm.value = AddExpenseFormUiState()
+    }
+
+    fun onDismissAddExpense() {
+        isAddExpenseVisible.value = false
+        addExpenseForm.value = AddExpenseFormUiState()
+    }
+
+    fun onExpenseConceptChanged(value: String) {
+        addExpenseForm.update { current -> current.copy(concept = value.take(40)).validated() }
+    }
+
+    fun onExpenseAmountChanged(value: String) {
+        addExpenseForm.update { current -> current.copy(amount = value.filterAllowedNumeric()).validated() }
+    }
+
+    fun onExpenseIsMsiChanged(value: Boolean) {
+        addExpenseForm.update { current ->
+            current.copy(
+                isMsi = value,
+                installmentCount = if (value) current.installmentCount else ""
+            ).validated()
+        }
+    }
+
+    fun onExpenseInstallmentCountChanged(value: String) {
+        addExpenseForm.update { current ->
+            current.copy(installmentCount = value.filter { it.isDigit() }.take(2)).validated()
+        }
+    }
+
+    fun onSaveExpense() {
+        val current = addExpenseForm.value.copy(hasAttemptedSubmit = true).validated()
+        addExpenseForm.value = current
+        if (!current.canSubmit) return
+
+        val cardId = selectedCardId.value ?: return
+        val selectedCard = uiState.value.cards.firstOrNull { it.id == cardId } ?: return
+        val amount = current.amount.toDoubleOrNull() ?: return
+        if (amount > selectedCard.availableLimitAmount) {
+            addExpenseForm.value = current.copy(errorMessage = "Ese gasto rebasa el disponible actual")
+            return
+        }
+
+        val newExpense = CardExpense(
+            id = "expense-$cardId-${System.currentTimeMillis()}",
+            cardId = cardId,
+            concept = current.concept.ifBlank { "Gasto manual" },
+            amount = amount,
+            createdAt = LocalDateTime.now(),
+            isMsi = current.isMsi,
+            installmentCount = current.installmentCount.toIntOrNull(),
+            monthlyInstallmentAmount = current.monthlyInstallmentAmount(),
+            financingId = if (current.isMsi) "msi-$cardId-${System.currentTimeMillis()}" else null
+        )
+        viewModelScope.launch {
+            walletRepository.saveExpense(newExpense)
+        }
+        isAddExpenseVisible.value = false
+        addExpenseForm.value = AddExpenseFormUiState()
+    }
+
+    fun onHiddenCardsPressed() {
+        if (!isWalletOpen.value) return
+        isCardSelectorVisible.value = true
+        pendingSelectorScrollToHidden.value = true
+        actionMenuCardId.value = null
+    }
+
+    fun onHiddenCardsScrollHandled() {
+        pendingSelectorScrollToHidden.value = false
     }
 
     fun onShortNameChanged(value: String) {
@@ -139,10 +301,20 @@ class WalletViewModel @Inject constructor(
         addCardForm.value = current
         if (!current.canSubmit) return
 
-        val newCard = current.toCardAccount()
-        extraCards.update { listOf(newCard) + it }
+        val cardId = if (addCardMode.value == AddCardMode.EDIT) selectedCardId.value else null
+        val newCard = current.toCardAccount(existingCardId = cardId)
+        val cardToPersist = if (addCardMode.value == AddCardMode.EDIT && cardId != null) {
+            mergeCardIdentity(existing = resolveCard(cardId), updated = newCard)
+        } else {
+            newCard
+        }
+
+        viewModelScope.launch {
+            walletRepository.saveCard(cardToPersist)
+        }
         selectedCardId.value = newCard.id
         isAddCardVisible.value = false
+        addCardMode.value = AddCardMode.CREATE
         addCardForm.value = AddCardFormUiState()
         isWalletOpen.value = true
     }
@@ -150,15 +322,52 @@ class WalletViewModel @Inject constructor(
     private fun updateForm(transform: AddCardFormUiState.() -> AddCardFormUiState) {
         addCardForm.update { current -> current.transform() }
     }
+
+    private fun resolveCard(cardId: String): CardAccount? {
+        return uiState.value.cards.firstOrNull { it.id == cardId }?.toCardAccount()
+    }
+
+    private fun WalletCardUiModel.toCardAccount(): CardAccount {
+        return CardAccount(
+            id = id,
+            displayName = name,
+            bankName = bankName.takeIf { it.isNotBlank() },
+            brand = brand.takeIf { it.isNotBlank() },
+            lastDigits = lastDigits,
+            creditLimit = extractCreditLimit(limitUsageText),
+            availableLimit = availableLimitAmount,
+            paymentDay = paymentDayText.filter(Char::isDigit).toIntOrNull() ?: 1,
+            closingDay = closingDayText?.filter(Char::isDigit)?.toIntOrNull(),
+            monthlyInstallmentPayment = monthlyPaymentAmount,
+            pendingInstallments = installmentsText.filter(Char::isDigit).toIntOrNull() ?: 0,
+            paidMsi = paidMsiText.filter(Char::isDigit).toIntOrNull() ?: 0
+        )
+    }
+
+    private fun mergeCardIdentity(existing: CardAccount?, updated: CardAccount): CardAccount {
+        return updated.copy(
+            lastDigits = existing?.lastDigits.orEmpty(),
+            monthlyInstallmentPayment = existing?.monthlyInstallmentPayment ?: 0.0,
+            pendingInstallments = existing?.pendingInstallments ?: 0,
+            paidMsi = existing?.paidMsi ?: 0
+        )
+    }
 }
 
 private data class WalletPresentationState(
     val snapshot: WalletSnapshot,
-    val isWalletOpen: Boolean,
+    val currentScreen: WalletScreenDestination = WalletScreenDestination.Wallet,
+    val isWalletOpen: Boolean = false,
     val isCardSelectorVisible: Boolean = false,
     val isAddCardVisible: Boolean = false,
+    val isAddExpenseVisible: Boolean = false,
     val selectedCardId: String? = null,
-    val addCardForm: AddCardFormUiState = AddCardFormUiState()
+    val actionMenuCardId: String? = null,
+    val transitioningToExpenseCardId: String? = null,
+    val addCardMode: AddCardMode = AddCardMode.CREATE,
+    val addCardForm: AddCardFormUiState = AddCardFormUiState(),
+    val addExpenseForm: AddExpenseFormUiState = AddExpenseFormUiState(),
+    val expenses: List<CardExpense> = emptyList()
 )
 
 private fun AddCardFormUiState.validated(): AddCardFormUiState {
@@ -183,6 +392,28 @@ private fun AddCardFormUiState.validated(): AddCardFormUiState {
     )
 }
 
+private fun AddExpenseFormUiState.validated(): AddExpenseFormUiState {
+    val amountValue = amount.toDoubleOrNull()
+    val installments = installmentCount.toIntOrNull()
+    val error = when {
+        amountValue == null || amountValue <= 0.0 -> "Agrega un monto valido"
+        isMsi && (installments == null || installments !in 2..24) -> "Pon de 2 a 24 meses para este MSI"
+        else -> null
+    }
+
+    return copy(
+        canSubmit = error == null,
+        errorMessage = if (hasAttemptedSubmit) error else null
+    )
+}
+
+private fun AddExpenseFormUiState.monthlyInstallmentAmount(): Double {
+    val amountValue = amount.toDoubleOrNull() ?: return 0.0
+    val installments = installmentCount.toIntOrNull() ?: return 0.0
+    if (!isMsi || installments <= 0) return 0.0
+    return amountValue / installments
+}
+
 private fun String.filterAllowedNumeric(): String {
     var hasDot = false
     return buildString {
@@ -196,4 +427,12 @@ private fun String.filterAllowedNumeric(): String {
             }
         }
     }
+}
+
+private fun extractCreditLimit(limitUsageText: String): Double {
+    return limitUsageText.substringAfter("de ", "0")
+        .replace("$", "")
+        .replace(",", "")
+        .trim()
+        .toDoubleOrNull() ?: 0.0
 }

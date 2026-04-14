@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.room.Room
 import com.example.cero.data.local.AppDatabase
 import com.example.cero.data.local.UserDao
+import com.example.cero.data.local.WalletDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -25,9 +26,13 @@ object DatabaseModule {
             context,
             AppDatabase::class.java,
             "cero_db"
-        ).build()
+        ).fallbackToDestructiveMigration().build()
 
     @Provides
     fun provideUserDao(database: AppDatabase): UserDao =
         database.userDao()
+
+    @Provides
+    fun provideWalletDao(database: AppDatabase): WalletDao =
+        database.walletDao()
 }
