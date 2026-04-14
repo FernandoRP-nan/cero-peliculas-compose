@@ -9,6 +9,8 @@ data class WalletUiState(
     val spendingMessage: String = "",
     val canSpendMore: Boolean = false,
     val isWalletOpen: Boolean = false,
+    val isCardSelectorVisible: Boolean = false,
+    val selectedCardId: String? = null,
     val cards: List<WalletCardUiModel> = emptyList()
 )
 
@@ -20,6 +22,7 @@ data class WalletCardUiModel(
     val limitUsageText: String,
     val monthlyPaymentText: String,
     val installmentsText: String,
+    val PaidMsiText: String,
     val accentStart: Long,
     val accentEnd: Long
 )

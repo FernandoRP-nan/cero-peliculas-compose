@@ -26,7 +26,8 @@ class LocalWalletRepository @Inject constructor() : WalletRepository {
                     creditLimit = 25000.0,
                     usedLimit = 12400.0,
                     monthlyInstallmentPayment = 1180.0,
-                    pendingInstallments = 8
+                    pendingInstallments = 8,
+                    PaidMsi = 2
                 ),
                 CardAccount(
                     id = "nu-morado",
@@ -36,7 +37,9 @@ class LocalWalletRepository @Inject constructor() : WalletRepository {
                     creditLimit = 18000.0,
                     usedLimit = 6250.0,
                     monthlyInstallmentPayment = 750.0,
-                    pendingInstallments = 5
+                    pendingInstallments = 5,
+                    PaidMsi = 2
+
                 ),
                 CardAccount(
                     id = "santander-likeu",
@@ -46,7 +49,9 @@ class LocalWalletRepository @Inject constructor() : WalletRepository {
                     creditLimit = 12000.0,
                     usedLimit = 0.0,
                     monthlyInstallmentPayment = 500.0,
-                    pendingInstallments = 2
+                    pendingInstallments = 2,
+                    PaidMsi = 2
+
                 )
             )
         )

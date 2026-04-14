@@ -7,7 +7,11 @@ import java.util.Locale
 
 private val currencyFormatter = NumberFormat.getCurrencyInstance(Locale("es", "MX"))
 
-internal fun WalletSnapshot.toUiState(isWalletOpen: Boolean): WalletUiState {
+internal fun WalletSnapshot.toUiState(
+    isWalletOpen: Boolean,
+    isCardSelectorVisible: Boolean,
+    selectedCardId: String?
+): WalletUiState {
     val spendingMessage = if (canSpendMore) {
         "Si puedes gastar mas, pero con margen cuidado"
     } else {
@@ -21,6 +25,8 @@ internal fun WalletSnapshot.toUiState(isWalletOpen: Boolean): WalletUiState {
         spendingMessage = spendingMessage,
         canSpendMore = canSpendMore,
         isWalletOpen = isWalletOpen,
+        isCardSelectorVisible = isCardSelectorVisible,
+        selectedCardId = selectedCardId,
         cards = cards.mapIndexed { index, card ->
             card.toUiModel(index)
         }
@@ -43,6 +49,7 @@ private fun CardAccount.toUiModel(index: Int): WalletCardUiModel {
         monthlyPaymentText = currencyFormatter.format(monthlyInstallmentPayment),
         installmentsText = "$pendingInstallments MSI pendientes",
         accentStart = palette.first,
-        accentEnd = palette.second
+        accentEnd = palette.second,
+        PaidMsiText = "$PaidMsi Msi pagados"
     )
 }

@@ -8,5 +8,6 @@ data class CardAccount(
     val creditLimit: Double,
     val usedLimit: Double,
     val monthlyInstallmentPayment: Double,
-    val pendingInstallments: Int
+    val pendingInstallments: Int,
+    val PaidMsi: Int
 )

@@ -18,11 +18,23 @@ class WalletViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val isWalletOpen = MutableStateFlow(false)
+    private val isCardSelectorVisible = MutableStateFlow(false)
+    private val selectedCardId = MutableStateFlow<String?>(null)
 
     val uiState: StateFlow<WalletUiState> =
         observeWalletSnapshotUseCase()
             .combine(isWalletOpen) { snapshot, open ->
-                snapshot.toUiState(isWalletOpen = open)
+                snapshot to open
+            }
+            .combine(isCardSelectorVisible) { (snapshot, open), selectorVisible ->
+                Triple(snapshot, open, selectorVisible)
+            }
+            .combine(selectedCardId) { (snapshot, open, selectorVisible), selectedId ->
+                snapshot.toUiState(
+                    isWalletOpen = open,
+                    isCardSelectorVisible = selectorVisible,
+                    selectedCardId = selectedId
+                )
             }
             .stateIn(
                 scope = viewModelScope,
@@ -31,6 +43,27 @@ class WalletViewModel @Inject constructor(
             )
 
     fun onWalletPressed() {
-        isWalletOpen.update { current -> !current }
+        isWalletOpen.update { current ->
+            val next = !current
+            if (!next) {
+                isCardSelectorVisible.value = false
+            }
+            next
+        }
+    }
+
+    fun onPreviewCardPressed(cardId: String) {
+        if (!isWalletOpen.value) return
+        selectedCardId.value = cardId
+        isCardSelectorVisible.value = true
+    }
+
+    fun onDismissCardSelector() {
+        isCardSelectorVisible.value = false
+    }
+
+    fun onCardSelected(cardId: String) {
+        selectedCardId.value = cardId
+        isCardSelectorVisible.value = false
     }
 }
