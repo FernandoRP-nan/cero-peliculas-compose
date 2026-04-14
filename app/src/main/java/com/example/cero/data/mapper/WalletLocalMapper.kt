@@ -5,6 +5,8 @@ import com.example.cero.data.local.CardExpenseEntity
 import com.example.cero.domain.model.CardAccount
 import com.example.cero.domain.model.CardExpense
 import com.example.cero.domain.model.CardExpenseType
+import com.example.cero.domain.model.PaymentAllocationMode
+import java.time.LocalDate
 import java.time.LocalDateTime
 
 fun CardEntity.toDomain(): CardAccount {
@@ -54,7 +56,11 @@ fun CardExpenseEntity.toDomain(): CardExpense {
         isMsi = isMsi,
         installmentCount = installmentCount,
         monthlyInstallmentAmount = monthlyInstallmentAmount,
-        financingId = financingId
+        financingId = financingId,
+        firstDueDate = firstDueDate?.let(LocalDate::parse),
+        paymentDaySnapshot = paymentDaySnapshot,
+        closingDaySnapshot = closingDaySnapshot,
+        paymentAllocationMode = PaymentAllocationMode.valueOf(paymentAllocationMode)
     )
 }
 
@@ -69,6 +75,10 @@ fun CardExpense.toEntity(): CardExpenseEntity {
         isMsi = isMsi,
         installmentCount = installmentCount,
         monthlyInstallmentAmount = monthlyInstallmentAmount,
-        financingId = financingId
+        financingId = financingId,
+        firstDueDate = firstDueDate?.toString(),
+        paymentDaySnapshot = paymentDaySnapshot,
+        closingDaySnapshot = closingDaySnapshot,
+        paymentAllocationMode = paymentAllocationMode.name
     )
 }

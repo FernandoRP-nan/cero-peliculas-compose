@@ -223,7 +223,7 @@ internal fun AddCardOverlay(
                                 value = uiState.addCardForm.availableLimit,
                                 onValueChange = onAvailableLimitChanged,
                                 modifier = Modifier.weight(1f),
-                                label = { Text("Disponible hoy*") },
+                                label = { Text("Disponible*") },
                                 singleLine = true,
                                 keyboardOptions = FoundationKeyboardOptions(keyboardType = KeyboardType.Decimal)
                             )
@@ -275,7 +275,7 @@ internal fun AddCardOverlay(
                                     modifier = Modifier.fillMaxWidth(),
                                     label = { Text("Dia de corte") },
                                     placeholder = { Text("Ejemplo: 8") },
-                                    supportingText = { Text("Aqui conviene un dia del mes, no un calendario completo.") },
+                                   // supportingText = { Text("Aqui conviene un dia del mes, no un calendario completo.") },
                                     singleLine = true,
                                     keyboardOptions = FoundationKeyboardOptions(keyboardType = KeyboardType.Number)
                                 )

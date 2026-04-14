@@ -14,5 +14,9 @@ data class CardExpenseEntity(
     val isMsi: Boolean,
     val installmentCount: Int?,
     val monthlyInstallmentAmount: Double,
-    val financingId: String?
+    val financingId: String?,
+    val firstDueDate: String?,
+    val paymentDaySnapshot: Int?,
+    val closingDaySnapshot: Int?,
+    val paymentAllocationMode: String
 )

@@ -1,8 +1,8 @@
 package com.example.cero.feature.wallet
 
 data class WalletUiState(
-    val walletName: String = "Tu cartera",
-    val helperText: String = "Toca para abrir y revisar tus tarjetas",
+    val walletName: String = WalletLocalization.walletName(),
+    val helperText: String = WalletLocalization.walletHelper(),
     val totalDebt: String = "$0",
     val monthlyCommitment: String = "$0/mes",
     val availableToSpend: String = "$0",
@@ -16,6 +16,7 @@ data class WalletUiState(
     val selectedCardId: String? = null,
     val actionMenuCardId: String? = null,
     val transitioningToExpenseCardId: String? = null,
+    val quickEntryMode: AddExpenseEntryMode? = null,
     val pendingSelectorScrollToHidden: Boolean = false,
     val addCardMode: AddCardMode = AddCardMode.CREATE,
     val addCardForm: AddCardFormUiState = AddCardFormUiState(),
@@ -52,6 +53,7 @@ data class WalletCardUiModel(
     val monthlyPaymentText: String,
     val monthlyPaymentAmount: Double,
     val installmentsText: String,
+    val pendingMsiBalanceText: String,
     val pendingInstallmentsAmount: Double,
     val paidMsiText: String,
     val paymentDayText: String,
@@ -76,6 +78,7 @@ data class AddCardFormUiState(
 
 data class AddExpenseFormUiState(
     val mode: AddExpenseEntryMode = AddExpenseEntryMode.CHARGE,
+    val paymentAllocationMode: PaymentAllocationMode = PaymentAllocationMode.GENERAL,
     val concept: String = "",
     val amount: String = "",
     val isMsi: Boolean = false,
@@ -115,6 +118,11 @@ enum class MovementFilterMode {
 enum class AddExpenseEntryMode {
     CHARGE,
     PAYMENT
+}
+
+enum class PaymentAllocationMode {
+    GENERAL,
+    MSI_ONLY
 }
 
 enum class CardBrandOption {

@@ -5,7 +5,6 @@ import com.example.cero.data.mapper.toDomain
 import com.example.cero.data.mapper.toEntity
 import com.example.cero.domain.model.CardAccount
 import com.example.cero.domain.model.CardExpense
-import com.example.cero.domain.model.CardExpenseType
 import com.example.cero.domain.model.WalletSnapshot
 import com.example.cero.domain.repository.WalletRepository
 import kotlinx.coroutines.flow.Flow
@@ -26,24 +25,7 @@ class LocalWalletRepository @Inject constructor(
         ) { storedCards, expenses ->
             val expensesByCard = expenses.groupBy { it.cardId }
             val adjustedCards = storedCards.map { card ->
-                val cardMovements = expensesByCard[card.id].orEmpty()
-                val totalCharges = cardMovements
-                    .filter { it.entryType == CardExpenseType.CHARGE }
-                    .sumOf(CardExpense::amount)
-                val totalPayments = cardMovements
-                    .filter { it.entryType == CardExpenseType.PAYMENT }
-                    .sumOf(CardExpense::amount)
-                val msiPurchases = cardMovements.filter { it.entryType == CardExpenseType.CHARGE && it.isMsi }
-                val addedMsiMonthly = msiPurchases.sumOf { it.monthlyInstallmentAmount }
-                val pendingMsiBalance = msiPurchases.sumOf(CardExpense::amount)
-                val adjustedAvailable = (card.availableLimit - totalCharges + totalPayments)
-                    .coerceIn(0.0, card.creditLimit)
-                card.copy(
-                    availableLimit = adjustedAvailable,
-                    monthlyInstallmentPayment = card.monthlyInstallmentPayment + addedMsiMonthly,
-                    pendingInstallments = card.pendingInstallments,
-                    pendingMsiBalance = card.pendingMsiBalance + pendingMsiBalance
-                )
+                card.applyMovements(expensesByCard[card.id].orEmpty())
             }
             val totalDebt = adjustedCards.sumOf { it.usedLimit }
             val monthlyCommitment = adjustedCards.sumOf(CardAccount::monthlyInstallmentPayment)

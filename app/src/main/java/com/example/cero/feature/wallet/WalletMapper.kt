@@ -3,6 +3,7 @@ package com.example.cero.feature.wallet
 import com.example.cero.domain.model.CardAccount
 import com.example.cero.domain.model.CardExpense
 import com.example.cero.domain.model.CardExpenseType
+import com.example.cero.domain.model.PaymentAllocationMode
 import com.example.cero.domain.model.WalletSnapshot
 import java.text.NumberFormat
 import java.time.DayOfWeek
@@ -11,10 +12,19 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
 
-private val currencyFormatter = NumberFormat.getCurrencyInstance(Locale("es", "MX"))
-private val expenseDateFormatter = DateTimeFormatter.ofPattern("EEEE d 'de' MMMM", Locale("es", "MX"))
-private val expenseTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale("es", "MX"))
-private val weekDayFormatter = DateTimeFormatter.ofPattern("EEE", Locale("es", "MX"))
+private val walletLocale: Locale
+    get() = Locale.getDefault()
+private val currencyFormatter: NumberFormat
+    get() = NumberFormat.getCurrencyInstance(walletLocale)
+private val expenseDateFormatter: DateTimeFormatter
+    get() = DateTimeFormatter.ofPattern(
+        if (walletLocale.language.startsWith("en")) "EEEE, MMM d" else "EEEE d 'de' MMMM",
+        walletLocale
+    )
+private val expenseTimeFormatter: DateTimeFormatter
+    get() = DateTimeFormatter.ofPattern("HH:mm", walletLocale)
+private val weekDayFormatter: DateTimeFormatter
+    get() = DateTimeFormatter.ofPattern("EEE", walletLocale)
 
 internal fun WalletSnapshot.toUiState(
     currentScreen: WalletScreenDestination,
@@ -25,6 +35,7 @@ internal fun WalletSnapshot.toUiState(
     selectedCardId: String?,
     actionMenuCardId: String?,
     transitioningToExpenseCardId: String?,
+    quickEntryMode: AddExpenseEntryMode?,
     pendingSelectorScrollToHidden: Boolean,
     addCardMode: AddCardMode,
     addCardForm: AddCardFormUiState,
@@ -40,11 +51,7 @@ internal fun WalletSnapshot.toUiState(
         extraCards = extraCards,
         editedCards = editedCards
     )
-    val spendingMessage = if (canSpendMore) {
-        "Si puedes gastar mas, pero con margen cuidado"
-    } else {
-        "Por ahora mejor no cargues otra compra a MSI"
-    }
+    val spendingMessage = WalletLocalization.spendingMessage(canSpendMore = canSpendMore)
     val cardsUi = mergedCards.mapIndexed { index, card -> card.toUiModel(index) }
     val selectedExpenseCard = cardsUi.firstOrNull { it.id == selectedCardId }
     val allCardMovements = expensesByCard[selectedCardId].orEmpty()
@@ -62,7 +69,7 @@ internal fun WalletSnapshot.toUiState(
 
     return WalletUiState(
         totalDebt = currencyFormatter.format(totalDebt),
-        monthlyCommitment = "${currencyFormatter.format(monthlyCommitment)}/mes",
+        monthlyCommitment = "${currencyFormatter.format(monthlyCommitment)}${WalletLocalization.monthlySuffix()}",
         availableToSpend = currencyFormatter.format(availableToSpend),
         spendingMessage = spendingMessage,
         canSpendMore = canSpendMore,
@@ -74,6 +81,7 @@ internal fun WalletSnapshot.toUiState(
         selectedCardId = selectedCardId,
         actionMenuCardId = actionMenuCardId,
         transitioningToExpenseCardId = transitioningToExpenseCardId,
+        quickEntryMode = quickEntryMode,
         pendingSelectorScrollToHidden = pendingSelectorScrollToHidden,
         addCardMode = addCardMode,
         addCardForm = addCardForm,
@@ -114,18 +122,19 @@ private fun CardAccount.toUiModel(index: Int): WalletCardUiModel {
         lastDigits = lastDigits,
         creditLimitAmount = creditLimit,
         usedLimitAmount = usedLimit,
-        limitUsageText = "${currencyFormatter.format(usedLimit)} de ${currencyFormatter.format(creditLimit)}",
+        limitUsageText = "${currencyFormatter.format(usedLimit)} / ${currencyFormatter.format(creditLimit)}",
         availableLimitText = currencyFormatter.format(availableLimit),
         availableLimitAmount = availableLimit,
         monthlyPaymentText = currencyFormatter.format(monthlyInstallmentPayment),
         monthlyPaymentAmount = monthlyInstallmentPayment,
-        installmentsText = currencyFormatter.format(pendingMsiBalance),
+        installmentsText = WalletLocalization.remainingInstallments(pendingInstallments),
+        pendingMsiBalanceText = currencyFormatter.format(pendingMsiBalance),
         pendingInstallmentsAmount = pendingMsiBalance,
         accentStart = palette.first,
         accentEnd = palette.second,
-        paidMsiText = "$paidMsi MSI pagados",
-        paymentDayText = "Pago el dia $paymentDay",
-        closingDayText = closingDay?.let { "Corte el dia $it" }
+        paidMsiText = WalletLocalization.paidInstallments(paidMsi),
+        paymentDayText = WalletLocalization.paymentDay(paymentDay),
+        closingDayText = closingDay?.let { WalletLocalization.closingDay(it) }
     )
 }
 
@@ -135,7 +144,7 @@ private fun List<CardExpense>.toExpenseGroups(): List<ExpenseDayGroupUiModel> {
         .map { (date, expenses) ->
             ExpenseDayGroupUiModel(
                 dateLabel = date.format(expenseDateFormatter)
-                    .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale("es", "MX")) else it.toString() },
+                    .replaceFirstChar { if (it.isLowerCase()) it.titlecase(walletLocale) else it.toString() },
                 totalAmountText = currencyFormatter.format(expenses.sumOf(CardExpense::amount)),
                 expenses = expenses.sortedByDescending { it.createdAt }.map { expense ->
                     ExpenseItemUiModel(
@@ -144,9 +153,12 @@ private fun List<CardExpense>.toExpenseGroups(): List<ExpenseDayGroupUiModel> {
                         amountText = buildAmountLabel(expense),
                         timeLabel = expense.createdAt.format(expenseTimeFormatter),
                         supportingText = if (expense.isMsi && expense.installmentCount != null) {
-                            "${expense.installmentCount} MSI · ${currencyFormatter.format(expense.monthlyInstallmentAmount)}/mes"
+                            WalletLocalization.msiSupportingText(
+                                installments = expense.installmentCount,
+                                monthlyAmount = currencyFormatter.format(expense.monthlyInstallmentAmount)
+                            )
                         } else if (expense.entryType == CardExpenseType.PAYMENT) {
-                            "Pago registrado manualmente"
+                            expense.paymentSupportingText()
                         } else {
                             null
                         },
@@ -181,7 +193,7 @@ private fun buildWeekDayChips(
         MovementDayChipUiModel(
             key = day.toString(),
             label = day.format(weekDayFormatter).replaceFirstChar {
-                if (it.isLowerCase()) it.titlecase(Locale("es", "MX")) else it.toString()
+                if (it.isLowerCase()) it.titlecase(walletLocale) else it.toString()
             },
             dayNumber = day.dayOfMonth.toString(),
             isSelected = day.toString() == effectiveKey
@@ -191,10 +203,17 @@ private fun buildWeekDayChips(
 
 private fun CardExpense.displayConcept(): String {
     return when {
-        entryType == CardExpenseType.PAYMENT -> "Pago: $concept"
-        isMsi -> "$concept (MSI)"
+        entryType == CardExpenseType.PAYMENT -> WalletLocalization.paymentConcept(
+            concept = concept,
+            msiOnly = paymentAllocationMode == PaymentAllocationMode.MSI_ONLY
+        )
+        isMsi -> WalletLocalization.msiConcept(concept)
         else -> concept
     }
+}
+
+private fun CardExpense.paymentSupportingText(): String {
+    return WalletLocalization.paymentSupporting(msiOnly = paymentAllocationMode == PaymentAllocationMode.MSI_ONLY)
 }
 
 internal fun AddCardFormUiState.toPreviewCardUiModel(): WalletCardUiModel {
@@ -202,7 +221,7 @@ internal fun AddCardFormUiState.toPreviewCardUiModel(): WalletCardUiModel {
     val available = availableLimit.toDoubleOrNull() ?: 0.0
     return WalletCardUiModel(
         id = "preview",
-        name = shortName.ifBlank { "Nueva tarjeta" },
+        name = shortName.ifBlank { WalletLocalization.previewCardName() },
         bankName = bankName,
         brand = brand.label,
         lastDigits = "0000",
@@ -213,14 +232,15 @@ internal fun AddCardFormUiState.toPreviewCardUiModel(): WalletCardUiModel {
         availableLimitAmount = available,
         monthlyPaymentText = currencyFormatter.format(0),
         monthlyPaymentAmount = 0.0,
-        installmentsText = currencyFormatter.format(0),
+        installmentsText = WalletLocalization.remainingInstallments(0),
+        pendingMsiBalanceText = currencyFormatter.format(0),
         pendingInstallmentsAmount = 0.0,
-        paidMsiText = "0 MSI pagados",
-        paymentDayText = paymentDay.toIntOrNull()?.let { "Pago el dia $it" } ?: "Agrega dia de pago",
+        paidMsiText = WalletLocalization.paidInstallments(0),
+        paymentDayText = paymentDay.toIntOrNull()?.let { WalletLocalization.paymentDay(it) } ?: WalletLocalization.addPaymentDay(),
         closingDayText = if (hasClosingDay) {
-            closingDay.toIntOrNull()?.let { "Corte el dia $it" } ?: "Agrega dia de corte"
+            closingDay.toIntOrNull()?.let { WalletLocalization.closingDay(it) } ?: WalletLocalization.addClosingDay()
         } else {
-            "Sin fecha de corte"
+            WalletLocalization.noClosingDay()
         },
         accentStart = 0xFF7C4D32,
         accentEnd = 0xFFBF8B63

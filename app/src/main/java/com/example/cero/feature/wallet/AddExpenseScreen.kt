@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -44,6 +45,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,13 +54,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.cero.R
 import com.example.cero.domain.model.UiPerformanceMode
 import java.text.NumberFormat
 import java.util.Locale
 import androidx.compose.foundation.text.KeyboardOptions as FoundationKeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 
-private val addExpenseCurrencyFormatter = NumberFormat.getCurrencyInstance(Locale("es", "MX"))
+private val addExpenseCurrencyFormatter = NumberFormat.getCurrencyInstance(Locale.getDefault())
 
 @Composable
 internal fun AddExpenseScreen(
@@ -72,6 +75,7 @@ internal fun AddExpenseScreen(
     onExpenseConceptChanged: (String) -> Unit,
     onExpenseAmountChanged: (String) -> Unit,
     onExpenseModeChanged: (AddExpenseEntryMode) -> Unit,
+    onPaymentAllocationModeChanged: (PaymentAllocationMode) -> Unit,
     onExpenseIsMsiChanged: (Boolean) -> Unit,
     onExpenseInstallmentCountChanged: (String) -> Unit,
     onSaveExpense: () -> Unit
@@ -108,12 +112,12 @@ internal fun AddExpenseScreen(
 
                     Column {
                         Text(
-                            text = "Agregar gastos",
+                            text = stringResource(R.string.wallet_add_expense_title),
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Cada gasto baja el disponible actual de esta tarjeta.",
+                            text = stringResource(R.string.wallet_add_expense_subtitle),
                             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.68f)
                         )
                     }
@@ -129,7 +133,7 @@ internal fun AddExpenseScreen(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     Text(
-                        text = "Movimientos",
+                        text = stringResource(R.string.wallet_movements_title),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -160,12 +164,12 @@ internal fun AddExpenseScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Text(
-                                text = "Todavia no hay movimientos en esta tarjeta",
+                                text = stringResource(R.string.wallet_empty_movements_title),
                                 fontWeight = FontWeight.Bold,
                                 style = MaterialTheme.typography.titleMedium
                             )
                             Text(
-                                text = "Usa el boton flotante para registrar un gasto o un pago.",
+                                text = stringResource(R.string.wallet_empty_movements_body),
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f)
                             )
                         }
@@ -200,6 +204,7 @@ internal fun AddExpenseScreen(
             onExpenseModeChanged = onExpenseModeChanged,
             onConceptChanged = onExpenseConceptChanged,
             onAmountChanged = onExpenseAmountChanged,
+            onPaymentAllocationModeChanged = onPaymentAllocationModeChanged,
             onIsMsiChanged = onExpenseIsMsiChanged,
             onInstallmentCountChanged = onExpenseInstallmentCountChanged,
             onSaveExpense = onSaveExpense
@@ -230,7 +235,7 @@ private fun ExpenseCardHero(
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = card.brand.ifBlank { "Local" },
+                        text = card.brand.ifBlank { stringResource(R.string.wallet_local_brand) },
                         color = Color.White.copy(alpha = 0.74f),
                         fontSize = 12.sp
                     )
@@ -246,8 +251,8 @@ private fun ExpenseCardHero(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    ExpenseCardMetric(title = "Disponible", value = card.availableLimitText)
-                    ExpenseCardMetric(title = "MSI al mes", value = card.monthlyPaymentText)
+                    ExpenseCardMetric(title = stringResource(R.string.wallet_metric_available), value = card.availableLimitText)
+                    ExpenseCardMetric(title = stringResource(R.string.wallet_metric_monthly_msi), value = card.monthlyPaymentText)
                 }
             }
         }
@@ -281,13 +286,13 @@ private fun MovementFilterToggle(
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         FilterMotionChip(
-            text = "Semana",
+            text = stringResource(R.string.wallet_filter_week),
             selected = selectedMode == MovementFilterMode.WEEK,
             compact = performanceMode == UiPerformanceMode.LOW,
             onClick = { onModeSelected(MovementFilterMode.WEEK) }
         )
         FilterMotionChip(
-            text = "Mes",
+            text = stringResource(R.string.wallet_filter_month),
             selected = selectedMode == MovementFilterMode.MONTH,
             compact = performanceMode == UiPerformanceMode.LOW,
             onClick = { onModeSelected(MovementFilterMode.MONTH) }
@@ -434,6 +439,7 @@ private fun AddExpenseOverlay(
     onExpenseModeChanged: (AddExpenseEntryMode) -> Unit,
     onConceptChanged: (String) -> Unit,
     onAmountChanged: (String) -> Unit,
+    onPaymentAllocationModeChanged: (PaymentAllocationMode) -> Unit,
     onIsMsiChanged: (Boolean) -> Unit,
     onInstallmentCountChanged: (String) -> Unit,
     onSaveExpense: () -> Unit
@@ -487,32 +493,68 @@ private fun AddExpenseOverlay(
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         Text(
-                            text = if (uiState.addExpenseForm.mode == AddExpenseEntryMode.PAYMENT) "Registrar pago" else "Nuevo gasto",
+                            text = if (uiState.addExpenseForm.mode == AddExpenseEntryMode.PAYMENT) {
+                                stringResource(R.string.wallet_add_payment_title)
+                            } else {
+                                stringResource(R.string.wallet_new_expense_title)
+                            },
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
                             text = if (uiState.addExpenseForm.mode == AddExpenseEntryMode.PAYMENT) {
-                                "Un pago libera credito y baja lo que debes."
+                                stringResource(R.string.wallet_add_payment_body)
                             } else {
-                                "Un gasto baja disponible. Si es MSI, tambien suma al pago mensual."
+                                stringResource(R.string.wallet_new_expense_body)
                             },
                             color = Color(0xFF6A5548)
                         )
 
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             FilterMotionChip(
-                                text = "Gasto",
+                                text = stringResource(R.string.wallet_charge_label),
                                 selected = uiState.addExpenseForm.mode == AddExpenseEntryMode.CHARGE,
                                 compact = performanceMode == UiPerformanceMode.LOW,
                                 onClick = { onExpenseModeChanged(AddExpenseEntryMode.CHARGE) }
                             )
                             FilterMotionChip(
-                                text = "Pago",
+                                text = stringResource(R.string.wallet_payment_label),
                                 selected = uiState.addExpenseForm.mode == AddExpenseEntryMode.PAYMENT,
                                 compact = performanceMode == UiPerformanceMode.LOW,
                                 onClick = { onExpenseModeChanged(AddExpenseEntryMode.PAYMENT) }
                             )
+                        }
+
+                        if (uiState.addExpenseForm.mode == AddExpenseEntryMode.PAYMENT) {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text(
+                                    text = stringResource(R.string.wallet_payment_type),
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    FilterMotionChip(
+                                        text = stringResource(R.string.wallet_payment_type_general),
+                                        selected = uiState.addExpenseForm.paymentAllocationMode == PaymentAllocationMode.GENERAL,
+                                        compact = performanceMode == UiPerformanceMode.LOW,
+                                        onClick = { onPaymentAllocationModeChanged(PaymentAllocationMode.GENERAL) }
+                                    )
+                                    FilterMotionChip(
+                                        text = stringResource(R.string.wallet_payment_type_msi),
+                                        selected = uiState.addExpenseForm.paymentAllocationMode == PaymentAllocationMode.MSI_ONLY,
+                                        compact = performanceMode == UiPerformanceMode.LOW,
+                                        onClick = { onPaymentAllocationModeChanged(PaymentAllocationMode.MSI_ONLY) }
+                                    )
+                                }
+                                Text(
+                                    text = if (uiState.addExpenseForm.paymentAllocationMode == PaymentAllocationMode.GENERAL) {
+                                        stringResource(R.string.wallet_payment_type_general_body)
+                                    } else {
+                                        stringResource(R.string.wallet_payment_type_msi_body)
+                                    },
+                                    color = Color(0xFF6A5548),
+                                    fontSize = 12.sp
+                                )
+                            }
                         }
 
                         ExpenseLiveSummary(preview = expensePreview)
@@ -521,13 +563,21 @@ private fun AddExpenseOverlay(
                             value = uiState.addExpenseForm.concept,
                             onValueChange = onConceptChanged,
                             modifier = Modifier.fillMaxWidth(),
-                            label = { Text(if (uiState.addExpenseForm.mode == AddExpenseEntryMode.PAYMENT) "Referencia" else "Concepto") },
+                            label = {
+                                Text(
+                                    if (uiState.addExpenseForm.mode == AddExpenseEntryMode.PAYMENT) {
+                                        stringResource(R.string.wallet_reference_label)
+                                    } else {
+                                        stringResource(R.string.wallet_concept_label)
+                                    }
+                                )
+                            },
                             placeholder = {
                                 Text(
                                     if (uiState.addExpenseForm.mode == AddExpenseEntryMode.PAYMENT) {
-                                        "Pago al corte, abono, transferencia"
+                                        stringResource(R.string.wallet_reference_placeholder)
                                     } else {
-                                        "Cafe, super, gasolina"
+                                        stringResource(R.string.wallet_concept_placeholder)
                                     }
                                 )
                             },
@@ -538,7 +588,7 @@ private fun AddExpenseOverlay(
                             value = uiState.addExpenseForm.amount,
                             onValueChange = onAmountChanged,
                             modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Monto*") },
+                            label = { Text(stringResource(R.string.wallet_amount_label)) },
                             placeholder = { Text("350") },
                             singleLine = true,
                             keyboardOptions = FoundationKeyboardOptions(keyboardType = KeyboardType.Decimal)
@@ -552,11 +602,11 @@ private fun AddExpenseOverlay(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = "Es compra a MSI",
+                                        text = stringResource(R.string.wallet_is_msi),
                                         fontWeight = FontWeight.SemiBold
                                     )
                                     Text(
-                                        text = "Quedara identificada para el pago mensual y futuro seguimiento.",
+                                        text = stringResource(R.string.wallet_is_msi_body),
                                         color = Color(0xFF6A5548),
                                         fontSize = 12.sp
                                     )
@@ -572,8 +622,8 @@ private fun AddExpenseOverlay(
                                     value = uiState.addExpenseForm.installmentCount,
                                     onValueChange = onInstallmentCountChanged,
                                     modifier = Modifier.fillMaxWidth(),
-                                    label = { Text("Meses sin intereses") },
-                                    placeholder = { Text("Ejemplo: 3, 6, 12") },
+                                    label = { Text(stringResource(R.string.wallet_installments_label)) },
+                                    placeholder = { Text(stringResource(R.string.wallet_installments_placeholder)) },
                                     singleLine = true,
                                     keyboardOptions = FoundationKeyboardOptions(keyboardType = KeyboardType.Number)
                                 )
@@ -606,7 +656,7 @@ private fun AddExpenseOverlay(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "Cancelar",
+                                text = stringResource(R.string.wallet_cancel),
                                 color = Color(0xFF5B3A24),
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -622,7 +672,11 @@ private fun AddExpenseOverlay(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = if (uiState.addExpenseForm.mode == AddExpenseEntryMode.PAYMENT) "Registrar pago" else "Guardar gasto",
+                                text = if (uiState.addExpenseForm.mode == AddExpenseEntryMode.PAYMENT) {
+                                    stringResource(R.string.wallet_save_payment)
+                                } else {
+                                    stringResource(R.string.wallet_save_expense)
+                                },
                                 color = Color(0xFFFFF7ED),
                                 fontWeight = FontWeight.Bold
                             )
@@ -646,9 +700,9 @@ private fun ExpenseLiveSummary(preview: ExpensePreviewUiModel) {
                 .padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            ExpensePreviewMetric(title = "Disponible", value = preview.availableText)
-            ExpensePreviewMetric(title = "Debes", value = preview.debtText)
-            ExpensePreviewMetric(title = "MSI al mes", value = preview.monthlyText)
+            ExpensePreviewMetric(title = stringResource(R.string.wallet_metric_available), value = preview.availableText)
+            ExpensePreviewMetric(title = stringResource(R.string.wallet_preview_debt), value = preview.debtText)
+            ExpensePreviewMetric(title = stringResource(R.string.wallet_metric_monthly_msi), value = preview.monthlyText)
         }
     }
 }

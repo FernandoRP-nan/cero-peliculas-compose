@@ -34,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,6 +43,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.cero.R
 import com.example.cero.domain.model.UiPerformanceMode
 
 @Composable
@@ -51,6 +53,7 @@ internal fun CardSelectorOverlay(
     reduceEffects: Boolean,
     onDismiss: () -> Unit,
     onCardSelected: (String) -> Unit,
+    onQuickCardSelected: (String) -> Unit,
     onAddExpensePressed: (String) -> Unit,
     onEditCardPressed: (String) -> Unit,
     onHiddenCardsScrollHandled: () -> Unit
@@ -116,13 +119,27 @@ internal fun CardSelectorOverlay(
                         .padding(22.dp)
                 ) {
                     Text(
-                        text = "Elige una tarjeta",
+                        text = if (uiState.quickEntryMode == null) {
+                            stringResource(R.string.wallet_selector_title)
+                        } else {
+                            stringResource(R.string.wallet_selector_title_for, quickEntryLabel(uiState.quickEntryMode))
+                        },
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF2C201A)
                     )
+                    uiState.quickEntryMode?.let { mode ->
+                        QuickEntryPill(
+                            mode = mode,
+                            modifier = Modifier.padding(top = 10.dp)
+                        )
+                    }
                     Text(
-                        text = "Como un menu de items: toca la que quieras enfocar.",
+                        text = if (uiState.quickEntryMode == null) {
+                            stringResource(R.string.wallet_selector_body)
+                        } else {
+                            stringResource(R.string.wallet_selector_body_quick)
+                        },
                         color = Color(0xFF6A5548),
                         modifier = Modifier.padding(top = 8.dp, bottom = 18.dp)
                     )
@@ -142,7 +159,10 @@ internal fun CardSelectorOverlay(
                                 emphasized = uiState.selectedCardId == card.id,
                                 showActions = uiState.actionMenuCardId == card.id,
                                 isTransitioning = uiState.transitioningToExpenseCardId == card.id,
-                                onClick = { onCardSelected(card.id) },
+                                onClick = {
+                                    if (uiState.quickEntryMode == null) onCardSelected(card.id)
+                                    else onQuickCardSelected(card.id)
+                                },
                                 onAddExpensePressed = { onAddExpensePressed(card.id) },
                                 onEditPressed = { onEditCardPressed(card.id) }
                             )
@@ -163,7 +183,7 @@ internal fun CardSelectorOverlay(
                                 .padding(horizontal = 18.dp, vertical = 10.dp)
                         ) {
                             Text(
-                                text = "Cerrar",
+                                text = stringResource(R.string.wallet_selector_close),
                                 color = Color(0xFF5B3A24),
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -172,6 +192,37 @@ internal fun CardSelectorOverlay(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun quickEntryLabel(mode: AddExpenseEntryMode): String {
+    return when (mode) {
+        AddExpenseEntryMode.CHARGE -> stringResource(R.string.wallet_selector_mode_charge)
+        AddExpenseEntryMode.PAYMENT -> stringResource(R.string.wallet_selector_mode_payment)
+    }
+}
+
+@Composable
+private fun QuickEntryPill(
+    mode: AddExpenseEntryMode,
+    modifier: Modifier = Modifier
+) {
+    val background = if (mode == AddExpenseEntryMode.CHARGE) Color(0xFFECD6C3) else Color(0xFFD8E7E2)
+    val content = if (mode == AddExpenseEntryMode.CHARGE) Color(0xFF7C4526) else Color(0xFF14532D)
+
+    Box(
+        modifier = modifier
+            .clip(CircleShape)
+            .background(background)
+            .padding(horizontal = 14.dp, vertical = 8.dp)
+    ) {
+        Text(
+            text = if (mode == AddExpenseEntryMode.CHARGE) stringResource(R.string.wallet_selector_pill_charge) else stringResource(R.string.wallet_selector_pill_payment),
+            color = content,
+            fontWeight = FontWeight.Bold,
+            fontSize = 12.sp
+        )
     }
 }
 
@@ -240,7 +291,7 @@ private fun SelectorDialogCard(
                         .padding(horizontal = 12.dp, vertical = 7.dp)
                 ) {
                     Text(
-                        text = if (emphasized) "Seleccionada" else "Disponible",
+                        text = if (emphasized) stringResource(R.string.wallet_selector_selected) else stringResource(R.string.wallet_selector_available),
                         color = if (emphasized) Color(0xFF5B3A24) else Color.White,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
@@ -255,7 +306,7 @@ private fun SelectorDialogCard(
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            text = card.brand.ifBlank { "Local" }.uppercase(),
+                            text = card.brand.ifBlank { stringResource(R.string.wallet_local_brand) }.uppercase(),
                             color = Color.White.copy(alpha = 0.78f),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold
@@ -286,7 +337,7 @@ private fun SelectorDialogCard(
                         ) {
                             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(
-                                    text = "MSI al mes",
+                                    text = stringResource(R.string.wallet_metric_monthly_msi),
                                     color = Color.White.copy(alpha = 0.72f),
                                     fontSize = 12.sp
                                 )
@@ -316,7 +367,7 @@ private fun SelectorDialogCard(
 
                         if (showActions) {
                             Text(
-                                text = "Elige lo que quieres hacer con esta tarjeta.",
+                                text = stringResource(R.string.wallet_selector_action_hint),
                                 color = Color.White.copy(alpha = 0.92f),
                                 fontSize = 12.sp
                             )
@@ -346,7 +397,7 @@ private fun SelectorDialogCard(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 ActionChip(
-                    title = "Agregar gastos",
+                    title = stringResource(R.string.wallet_selector_add_expense),
                     icon = {
                         Text(
                             text = "+",
@@ -361,10 +412,10 @@ private fun SelectorDialogCard(
                 )
 
                 ActionChip(
-                    title = "Editar tarjeta",
+                    title = stringResource(R.string.wallet_selector_edit_card),
                     icon = {
                         Text(
-                            text = "E",
+                            text = "-",
                             color = Color(0xFF5B3A24),
                             fontWeight = FontWeight.Bold
                         )
