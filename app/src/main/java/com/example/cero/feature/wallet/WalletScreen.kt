@@ -248,7 +248,7 @@ fun WalletScreen(
                             performanceMode = performanceMode,
                             reduceEffects = shouldReduceEffects,
                             expanded = uiState.isAddCardVisible,
-                            onClick = onAddCardPressed,
+                            onClick = if (uiState.isAddCardVisible) onDismissAddCard else onAddCardPressed,
                             modifier = Modifier
                                 .align(Alignment.BottomEnd)
                                 .padding(end = 20.dp, bottom = 24.dp)

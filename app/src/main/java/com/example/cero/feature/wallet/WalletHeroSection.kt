@@ -55,9 +55,9 @@ internal fun WalletHero(
     val lidRotation by animateFloatAsState(
         targetValue = if (uiState.isWalletOpen) {
             when {
-                reduceEffects -> -72f
-                performanceMode == UiPerformanceMode.LOW -> -84f
-                else -> -108f
+                reduceEffects -> 72f
+                performanceMode == UiPerformanceMode.LOW -> 84f
+                else -> 108f
             }
         } else {
             0f
